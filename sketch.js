@@ -1,59 +1,52 @@
-var video;
-var snapshot;
-var captureButton;
-var showSnapshot = false;
-var camWidth = 160;
-var camHeight = 120;
-var cameraError = false;
+let video, snapshot;
+const camWidth = 160, camHeight = 120;
+let noCamera = false;
 
 function setup() {
   createCanvas(800, 600);
   pixelDensity(1);
 
-  // Start video capture and attach an error event listener
+  // Check for an available camera | Source: MDN Web Docs – https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/enumerateDevices
+  if (navigator.mediaDevices) {
+    navigator.mediaDevices
+		.enumerateDevices()
+		.then(devices => {
+      if (!devices.some(device => device.kind === 'videoinput')) {
+        noCamera = true;
+        console.error('No camera detected.');
+      }
+    });
+		.catch(err => {
+      console.error(`${err.name}: ${err.message}`);
+    });
+  }
+
+  // Set up video capture
   video = createCapture(VIDEO);
   video.size(camWidth, camHeight);
   video.hide();
-  video.elt.addEventListener('error', function(e) {
-    console.error("Camera error:", e);
-    cameraError = true;
-  });
 
-  // Create the snapshot button
-  captureButton = createButton('Take Snapshot');
-  captureButton.position(10, camHeight + 10);
-  captureButton.mousePressed(takeSnapshot);
+  // Create a button for snapshot
+  createButton('Take Snapshot')
+    .position(10, camHeight + 10)
+    .mousePressed(() => snapshot = video.get());
 }
 
 function draw() {
   background(255);
-  
-  // If after ~1 second (60 frames) no video data is available, trigger error
-  if (!cameraError && frameCount > 60 && video.elt.videoWidth <= 0) {
-    console.error("Camera not working: video stream not available.");
-    cameraError = true;
+
+  // Show error message if no camera and stop further rendering
+  if (noCamera) {
+    fill(255, 0, 0);
+    textSize(24);
+    text("No Camera Detected", 10, 50);
+    return;
   }
 
-	if (cameraError) {
-		fill(255, 0, 0);
-		textSize(20);
-		text("Camera not working", 0, camHeight / 2);
-	}
-  
+  // Draw the live mirrored video/snapshot
   push();
     translate(camWidth, 0);
     scale(-1, 1);
-		if (showSnapshot && snapshot) {
-			image(snapshot, 0, 0, camWidth, camHeight);
-		} else {
-			image(video, 0, 0, camWidth, camHeight);
-		}
+    image(snapshot || video, 0, 0, camWidth, camHeight);
   pop();
-}
-
-function takeSnapshot() {
-  if (!cameraError) {
-    snapshot = video.get();
-    showSnapshot = true;
-  }
 }
