@@ -1,2 +1,1 @@
-# FinalProjectGraphicsProgramming
- Picture Filters
+Final Project for Graphics Programming: Image Processing
