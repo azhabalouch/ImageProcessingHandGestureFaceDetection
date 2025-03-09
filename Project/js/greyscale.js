@@ -25,8 +25,9 @@ function greyscale(img) {
       let g = processedImg.pixels[index + 1];
       let b = processedImg.pixels[index + 2];
       
+      // Source: https://planetcalc.com/9279/
       // Convert to greyscale
-      let grey = (r + g + b) / 3;
+      let grey = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
       // Increase the brightness by 20% to a maximum of 255
       let bright = grey * 1.2;

@@ -1,48 +1,67 @@
 let video, snapshot;
-const camWidth = 160, camHeight = 120;
-let noCamera = false;
+const CAM_WIDTH = 160;
+const CAM_HEIGHT = 120;
 
-/*
-  Asynchronous camera detection using MediaDevices API | Source: MDN Web Docs
-  https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/enumerateDevices
-  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise */
-async function detectCamera() {
-  if (navigator.mediaDevices) {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      if (!devices.some(device => device.kind === 'videoinput')) {
+let noCamera = false;
+let cameraCheckDone = false;
+let detectCameraPromise;
+
+/**
+ * Source: MDN Web Docs
+ * https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/enumerateDevices
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+ * 
+ * Checks for a video-input device (camera).
+ * Sets 'noCamera' to true if none is found.*/
+
+function detectCamera() {
+  return navigator.mediaDevices.enumerateDevices()
+    .then(devices => {
+      if (!devices.some(d => d.kind === 'videoinput')) {
         noCamera = true;
         console.error('No camera detected.');
       }
-    } catch (error) {
-      console.error("Error detecting camera:", error);
+    })
+    .catch(err => {
+      console.error('Error detecting camera:', err);
       noCamera = true;
-    }
+    })
+    .finally(() => {
+      cameraCheckDone = true;
+    });
+}
+
+function preload() {
+  // Start camera detection if supported
+  if (navigator.mediaDevices) {
+    detectCameraPromise = detectCamera();
   } else {
+    console.error('MediaDevices not supported');
     noCamera = true;
-    console.error("MediaDevices not supported");
+    cameraCheckDone = true;
   }
 }
 
-async function setup() {
+function setup() {
   createCanvas(800, 600);
   pixelDensity(1);
 
-  // Wait for the asynchronous camera detection to complete
-  await detectCamera();
-
-  // Set up video capture only if a camera is detected
-  if (!noCamera) {
-    video = createCapture(VIDEO);
-    video.size(camWidth, camHeight);
-    video.hide();
+  // Once camera detection completes, initialize capture if we have a camera
+  if (detectCameraPromise) {
+    detectCameraPromise.then(() => {
+      if (!noCamera) {
+        video = createCapture(VIDEO);
+        video.size(CAM_WIDTH, CAM_HEIGHT);
+        video.hide();
+      }
+    });
   }
 
-  // Create a button for snapshot
+  // Button to take a snapshot
   createButton('Take Snapshot')
-    .position(10, camHeight + 10)
+    .position(10, CAM_HEIGHT + 10)
     .mousePressed(() => {
-      if (video) {
+      if (video && cameraCheckDone && !noCamera) {
         snapshot = video.get();
       }
     });
@@ -51,25 +70,39 @@ async function setup() {
 function draw() {
   background(255);
 
-  // Show error message if no camera is detected
-  if (noCamera) {
-    fill(255, 0, 0);
+  // Show status while checking for a camera
+  if (!cameraCheckDone) {
+    fill(0);
     textSize(24);
-    text("No Camera Detected", 10, 50);
+    text('Checking for camera...', 10, 50);
     return;
   }
 
-  // Draw the live mirrored video/snapshot
-  push();
-    translate(camWidth, 0);
-    scale(-1, 1);
-    image(snapshot || video, 0, 0, camWidth, camHeight);
-  pop();
-
-  // If a snapshot exists, process it using greyscale
-  if (snapshot) {
-    let processed = greyscale(snapshot);
-    // Align it to the right of first snapshot
-    image(processed, camWidth + 10, 0, camWidth, camHeight);
+  // If camera check is done but no camera is present
+  if (noCamera) {
+    fill(255, 0, 0);
+    textSize(24);
+    text('No Camera Detected', 10, 50);
+    return;
   }
+
+  // Camera is present
+  push();
+  
+  // Mirror the image horizontally
+  translate(CAM_WIDTH, 0);
+  scale(-1, 1);
+
+  if (snapshot) {
+    // Display original snapshot
+    image(snapshot, 0, 0, CAM_WIDTH, CAM_HEIGHT);
+    // Display greyscale version
+    const gs = greyscale(snapshot);
+    image(gs, -CAM_WIDTH - 10, 0, CAM_WIDTH, CAM_HEIGHT);
+  } else {
+    // Live feed (no snapshot taken yet)
+    image(video, 0, 0, CAM_WIDTH, CAM_HEIGHT);
+  }
+
+  pop();
 }
