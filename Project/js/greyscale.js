@@ -8,7 +8,7 @@
  * @param {p5.Image} img - The input image to be processed.
  * @returns {p5.Image} The processed image with greyscale and increased brightness.
  */
-export function greyscale(img) {
+function greyscale(img) {
   // Create a new image, copy the source and load it for manipulation
   let processedImg = createImage(img.width, img.height);
   processedImg.copy(img, 0, 0, img.width, img.height, 0, 0, img.width, img.height);

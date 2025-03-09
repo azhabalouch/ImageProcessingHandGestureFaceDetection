@@ -1,6 +1,3 @@
-// Source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules
-import { greyscale } from './modules/greyscale.js';
-
 let video, snapshot;
 const camWidth = 160, camHeight = 120;
 let noCamera = false;
