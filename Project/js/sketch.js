@@ -1,3 +1,14 @@
+/* 
+  Source for comments:
+  - https://stackoverflow.com/questions/56377294/what-does-the-symbol-do-in-javascript-multiline-comments
+  - https://stackoverflow.com/questions/127095/what-is-the-preferred-method-of-commenting-javascript-objects-and-methods
+  - https://www.freecodecamp.org/news/comment-your-javascript-code/
+*/
+
+
+/*******************
+ * Global Variables
+ *******************/
 let video, snapshot;
 const CAM_WIDTH = 160;
 const CAM_HEIGHT = 120;
@@ -7,32 +18,9 @@ let cameraCheckDone = false;
 let detectCameraPromise;
 
 /**
- * Source: MDN Web Docs
- * https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/enumerateDevices
- * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
- * 
- * Checks for a video-input device (camera).
- * Sets 'noCamera' to true if none is found.*/
-
-function detectCamera() {
-  return navigator.mediaDevices.enumerateDevices()
-    .then(devices => {
-      if (!devices.some(d => d.kind === 'videoinput')) {
-        noCamera = true;
-        console.error('No camera detected.');
-      }
-    })
-    .catch(err => {
-      console.error('Error detecting camera:', err);
-      noCamera = true;
-    })
-    .finally(() => {
-      cameraCheckDone = true;
-    });
-}
-
+ * Preloads resources and starts camera detection.
+ */
 function preload() {
-  // Start camera detection if supported
   if (navigator.mediaDevices) {
     detectCameraPromise = detectCamera();
   } else {
@@ -42,11 +30,14 @@ function preload() {
   }
 }
 
+/**
+ * Initializes the canvas, camera capture, and snapshot button.
+ */
 function setup() {
   createCanvas(800, 600);
   pixelDensity(1);
 
-  // Once camera detection completes, initialize capture if we have a camera
+  // Initialize video capture after camera detection completes
   if (detectCameraPromise) {
     detectCameraPromise.then(() => {
       if (!noCamera) {
@@ -57,7 +48,7 @@ function setup() {
     });
   }
 
-  // Button to take a snapshot
+  // Create a button to capture a snapshot from the video feed
   createButton('Take Snapshot')
     .position(10, CAM_HEIGHT + 10)
     .mousePressed(() => {
@@ -67,10 +58,13 @@ function setup() {
     });
 }
 
+/**
+ * Draws the video or snapshot and additional processing if available.
+ */
 function draw() {
   background(255);
 
-  // Show status while checking for a camera
+  // Display status while checking for camera
   if (!cameraCheckDone) {
     fill(0);
     textSize(24);
@@ -78,7 +72,7 @@ function draw() {
     return;
   }
 
-  // If camera check is done but no camera is present
+  // Show error message if no camera is detected
   if (noCamera) {
     fill(255, 0, 0);
     textSize(24);
@@ -86,23 +80,47 @@ function draw() {
     return;
   }
 
-  // Camera is present
+  // Select the current frame (snapshot if available, otherwise live video)
+  let currentFrame = snapshot || video;
+
   push();
-  
+
   // Mirror the image horizontally
   translate(CAM_WIDTH, 0);
   scale(-1, 1);
 
-  if (snapshot) {
-    // Display original snapshot
-    image(snapshot, 0, 0, CAM_WIDTH, CAM_HEIGHT);
-    // Display greyscale version
-    const gs = greyscale(snapshot);
-    image(gs, -CAM_WIDTH - 10, 0, CAM_WIDTH, CAM_HEIGHT);
-  } else {
-    // Live feed (no snapshot taken yet)
-    image(video, 0, 0, CAM_WIDTH, CAM_HEIGHT);
-  }
+  // Display the current frame
+  image(currentFrame, 0, 0, CAM_WIDTH, CAM_HEIGHT);
 
+  // Helper variables to avoid hardcoding
+  let paddingX = 10;
+  let paddingY = 30;
+
+  // If a snapshot exists, display additional processed versions
+  if (snapshot) {
+    /**
+     * Task 1 - 3: Show resized original snapshot
+     */
+    image(snapshot, 0, 0, CAM_WIDTH, CAM_HEIGHT);
+    
+    /**
+     * Task 4 - 5: Convert to greyscale, increase brightness + %20
+     */
+    const gs = greyscale(snapshot);
+    image(gs, -CAM_WIDTH -paddingX, 0, CAM_WIDTH, CAM_HEIGHT);
+
+    /**
+     * Task 4 - 5: Extract and display the individual color channels.
+     */
+    let redChannel = extractChannel(snapshot, "red");
+    let greenChannel = extractChannel(snapshot, "green");
+    let blueChannel = extractChannel(snapshot, "blue");
+    
+    // Adjust positions according to your grid layout.
+    image(redChannel, 0, CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
+    image(greenChannel, -CAM_WIDTH -paddingX, CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
+    image(blueChannel, 2 * (-CAM_WIDTH -paddingX), CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
+  }
+  
   pop();
 }
