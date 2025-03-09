@@ -37,7 +37,7 @@ function preload() {
  * Initializes the canvas, camera capture, and snapshot button.
  */
 function setup() {
-  createCanvas(800, 600);
+  createCanvas(1440, 1080);
   pixelDensity(1);
 
   // Initialize video capture after camera detection completes
@@ -57,6 +57,7 @@ function setup() {
     .mousePressed(() => {
       if (video && cameraCheckDone && !noCamera) {
         snapshot = video.get();
+        liveMode = false;
       }
     });
 
@@ -155,6 +156,11 @@ function draw() {
     image(greenThreshImg, -CAM_WIDTH -paddingX, 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
     image(blueThreshImg, 2 * (-CAM_WIDTH -paddingX), 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
   }
+
+  // if(liveMode){
+  //   // Display the live video
+  //   image(video, 0, 3.5 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
+  // }
 
   pop();
 }
