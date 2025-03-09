@@ -25,7 +25,10 @@ let detectCameraPromise;      // Promise for asynchronous camera detection
 
 
 // Global sliders for dynamic thresholding
-let redThresholdSlider, greenThresholdSlider, blueThresholdSlider;
+let redThresholdSlider, greenThresholdSlider, blueThresholdSlider, hsvThresholdSlider, ycbcrThresholdSlider;
+
+// Global radio variables for HSV and YCbCr threshold selection
+let hsvRadio, ycbcrRadio;
 
 /**
  * Initiates camera detection before setup
@@ -88,6 +91,30 @@ function setup() {
   // Create and position the Blue Threshold slider
   blueThresholdSlider = createSlider(0, 255, 128);
   blueThresholdSlider.position(grid.getPosition(2, 3).x + paddingX, grid.getPosition(2, 3).y - paddingY/2);
+
+  // Create HSV Threshold slider
+  hsvThresholdSlider = createSlider(0, 255, 128);
+  hsvThresholdSlider.position(grid.getPosition(1, 3).x + paddingX, grid.getPosition(2, 5).y - paddingY/2);
+
+  // Create YCbCr Threshold slider
+  ycbcrThresholdSlider = createSlider(0, 255, 128);
+  ycbcrThresholdSlider.position(grid.getPosition(2, 3).x + paddingX, grid.getPosition(2, 5).y - paddingY/2);
+
+  // --- Create radio buttons for HSV threshold selection ---
+  hsvRadio = createRadio();
+  hsvRadio.option('H');
+  hsvRadio.option('S');
+  hsvRadio.option('V');
+  hsvRadio.selected('S'); // default selection
+  hsvRadio.position(grid.getPosition(1, 5).x, grid.getPosition(1, 5).y + paddingY);
+
+  // --- Create radio buttons for YCbCr threshold selection ---
+  ycbcrRadio = createRadio();
+  ycbcrRadio.option('Y');
+  ycbcrRadio.option('Cb');
+  ycbcrRadio.option('Cr');
+  ycbcrRadio.selected('Cr'); // default selection
+  ycbcrRadio.position(grid.getPosition(2, 5).x, grid.getPosition(2, 5).y + paddingY);
 }
 
 function draw() {
@@ -161,9 +188,30 @@ function draw() {
   image(blueThreshImg, grid.getPosition(2, 2).x, grid.getPosition(2, 2).y, CAM_WIDTH, CAM_HEIGHT);
   
   /**
-   * Task 9: Display the Live Video Feed and Colour Space Conversions
+   * Task 9 - 10: Display the Live Video Feed and Colour Space Conversions
    */
 
   // Display the live video feed
   image(video, grid.getPosition(0, 3).x, grid.getPosition(0, 3).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Colour space conversion #1: Convert the image to HSV.
+  let hsvConverted = ImageProcessor.convertToHSV(video);
+  image(hsvConverted, grid.getPosition(1, 3).x, grid.getPosition(1, 3).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Colour space conversion #2: Convert the image to YCbCr
+  let ycbcrConverted = ImageProcessor.convertToYCbCr(video);
+  image(ycbcrConverted, grid.getPosition(2, 3).x, grid.getPosition(2, 3).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Display HSV thresholding
+  let hsvThresholded = ImageProcessor.applyFilter(hsvConverted, (r, g, b, a) =>
+    ImageProcessor.thresholdHSV(r, g, b, a, hsvRadio.value(), hsvThresholdSlider.value())
+  );
+  image(hsvThresholded, grid.getPosition(1, 4).x, grid.getPosition(1, 4).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Display YCbCr thresholding
+  let ycbcrThresholded = ImageProcessor.applyFilter(ycbcrConverted, (r, g, b, a) =>
+    ImageProcessor.thresholdYCbCr(r, g, b, a, ycbcrRadio.value(), ycbcrThresholdSlider.value())
+  );
+  image(ycbcrThresholded, grid.getPosition(2, 4).x, grid.getPosition(2, 4).y, CAM_WIDTH, CAM_HEIGHT);
+
 }
