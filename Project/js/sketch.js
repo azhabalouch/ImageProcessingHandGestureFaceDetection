@@ -17,6 +17,9 @@ let noCamera = false;
 let cameraCheckDone = false;
 let detectCameraPromise;
 
+let liveMode = false;
+
+
 /**
  * Preloads resources and starts camera detection.
  */
@@ -56,6 +59,25 @@ function setup() {
         snapshot = video.get();
       }
     });
+
+  // Create sliders for dynamic thresholding for channels
+  redThresholdSlider = createSlider(0, 255, 128);
+  redThresholdSlider.position(5, 3 * (CAM_HEIGHT + 30));
+
+  greenThresholdSlider = createSlider(0, 255, 128);
+  greenThresholdSlider.position(CAM_WIDTH + 15, 3 * (CAM_HEIGHT + 30));
+
+  blueThresholdSlider = createSlider(0, 255, 128);
+  blueThresholdSlider.position((2 * CAM_WIDTH) + 25, 3 * (CAM_HEIGHT + 30));
+
+  // Create a button that switches to live video mode
+  createButton('Go Live')
+    .position(10, 3 * (CAM_HEIGHT + 40))
+    .mousePressed(() => {
+      liveMode = true;
+      // Optionally clear any stored snapshot
+      snapshot = null;
+    });
 }
 
 /**
@@ -81,7 +103,7 @@ function draw() {
   }
 
   // Select the current frame (snapshot if available, otherwise live video)
-  let currentFrame = snapshot || video;
+  let currentFrame = (liveMode ? video : snapshot) || video;
 
   push();
 
@@ -110,17 +132,29 @@ function draw() {
     image(gs, -CAM_WIDTH -paddingX, 0, CAM_WIDTH, CAM_HEIGHT);
 
     /**
-     * Task 4 - 5: Extract and display the individual color channels.
+     * Task 6: Extract and display the individual color channels
      */
     let redChannel = extractChannel(snapshot, "red");
     let greenChannel = extractChannel(snapshot, "green");
     let blueChannel = extractChannel(snapshot, "blue");
     
-    // Adjust positions according to your grid layout.
+    // Positions according to grid layout
     image(redChannel, 0, CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
     image(greenChannel, -CAM_WIDTH -paddingX, CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
     image(blueChannel, 2 * (-CAM_WIDTH -paddingX), CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
+
+    /**
+     * Task 7: Apply threshold to the individual color channels using slider
+     */
+    let blueThreshImg = applyFilter(blueChannel, blueThresholdCallback);
+    let redThreshImg = applyFilter(redChannel, redThresholdCallback);
+    let greenThreshImg = applyFilter(greenChannel, greenThresholdCallback);
+
+    // Positions according to grid layout
+    image(redThreshImg, 0, 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
+    image(greenThreshImg, -CAM_WIDTH -paddingX, 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
+    image(blueThreshImg, 2 * (-CAM_WIDTH -paddingX), 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
   }
-  
+
   pop();
 }
