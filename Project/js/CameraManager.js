@@ -42,7 +42,7 @@ class CameraManager {
        * Task 2: Resize the video according to requirements.
        */
       video = createCapture(VIDEO);   // Create a video capture instance
-      video.size(settings.camWidth, settings.camHeight);
+      video.size(CAM_WIDTH, CAM_HEIGHT);
       video.hide();                   // Hide default video element
     }
   }

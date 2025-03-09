@@ -1,3 +1,9 @@
+/**
+ * Source for comments:
+ * - https://stackoverflow.com/questions/56377294/what-does-the-symbol-do-in-javascript-multiline-comments
+ * - https://stackoverflow.com/questions/127095/what-is-the-preferred-method-of-commenting-javascript-objects-and-methods
+ * - https://www.freecodecamp.org/news/comment-your-javascript-code/ */
+
 /****************************************************
  * Global Settings & Variables
  ****************************************************/
@@ -5,13 +11,8 @@
 /**
  * Task 2: Minimum resolution
  */
-const settings = {
-  camWidth: 160,              // Camera image width in pixels
-  camHeight: 120,             // Camera image height in pixels
-  paddingX: 10,               // Horizontal padding between grid cells
-  paddingY: 30,               // Vertical padding between grid cells
-};
-
+const CAM_WIDTH = 160;
+const CAM_HEIGHT = 120;
 
 // Global variables for video capture and processing
 let video;                    // Webcam video
@@ -26,9 +27,7 @@ let detectCameraPromise;      // Promise for asynchronous camera detection
 // Global sliders for dynamic thresholding
 let redThresholdSlider, greenThresholdSlider, blueThresholdSlider;
 
-
 /**
- * p5.js preload function:
  * Initiates camera detection before setup
  */
 function preload() {
@@ -41,10 +40,6 @@ function preload() {
   }
 }
 
-/**
- * p5.js setup function:
- * Sets up the canvas, video capture, and UI elements.
- */
 function setup() {
   createCanvas(1440, 1080);
   pixelDensity(1);
@@ -57,28 +52,48 @@ function setup() {
     });
   }
 
-  // Create a grid layout for image positioning
-  grid = new GridLayout(0, 0, settings.camWidth, settings.camHeight, settings.paddingX, settings.paddingY);
-  
-  UIManager.createButtonsAndSliders();
+  // To add space between grid
+  let paddingX = 5;
+  let paddingY = 30;
+
+  // Initialize the GridLayout
+  grid = new GridLayout(0, 0, CAM_WIDTH, CAM_HEIGHT, paddingX, paddingY);
+
+  // Create and position the 'Take Snapshot' button
+  createButton('Take Snapshot')
+    .position(grid.getPosition(0, 1).x + paddingX*2, grid.getPosition(0, 1).y - paddingY/2)
+    .mousePressed(() => {
+      if (video && cameraCheckDone && !noCamera) {
+        snapshot = video.get();
+        liveMode = false;
+      }
+    });
+
+  // Create and position the 'Go Live' button
+  createButton('Go Live')
+    .position(grid.getPosition(1, 1).x + paddingX*2, grid.getPosition(1, 1).y - paddingY/2)
+    .mousePressed(() => {
+      liveMode = true;
+      snapshot = null;
+    });
+
+  // Create and position the Red Threshold slider
+  redThresholdSlider = createSlider(0, 255, 128);
+  redThresholdSlider.position(grid.getPosition(0, 3).x + paddingX, grid.getPosition(0, 3).y - paddingY/2);
+
+  // Create and position the Green Threshold slider
+  greenThresholdSlider = createSlider(0, 255, 128);
+  greenThresholdSlider.position(grid.getPosition(1, 3).x + paddingX, grid.getPosition(1, 3).y - paddingY/2);
+
+  // Create and position the Blue Threshold slider
+  blueThresholdSlider = createSlider(0, 255, 128);
+  blueThresholdSlider.position(grid.getPosition(2, 3).x + paddingX, grid.getPosition(2, 3).y - paddingY/2);
 }
 
-/**
- * p5.js draw function:
- * Continuously renders the processed images arranged in a grid layout.
- *
- * This function accomplishes assignment tasks:
- *  - Task 3: Displays the original webcam video.
- *  - Task 4: Converts the image to greyscale, increases brightness by 20% (with clamping), and displays it.
- *  - Task 6: Splits the webcam image into individual red, green, and blue channels and displays them.
- *  - Task 7: Applies dynamic thresholding (using slider input) to each color channel and displays the results.
- *  - Task 9: Displays the original webcam video (repeated) and colour space conversion.
- */
 function draw() {
-  // Clear the canvas with a white background
   background(255);
   
-  // If camera detection is still in progress, display a status message.
+  // If camera detection is still in progress
   if (!cameraCheckDone) {
     fill(0);
     textSize(24);
@@ -86,7 +101,7 @@ function draw() {
     return; // Exit draw until camera detection is complete
   }
   
-  // If no camera is detected, show an error message in red
+  // If no camera is detected
   if (noCamera) {
     fill(255, 0, 0);
     textSize(24);
@@ -98,13 +113,12 @@ function draw() {
   let processingFrame = snapshot ? snapshot : video.get();
   
   /* Task 3: Display the original webcam image */
-  let pos = grid.getPosition(0, 0);
-  image(processingFrame, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  image(processingFrame, grid.getPosition(0, 0).x, grid.getPosition(0, 0).y, CAM_WIDTH, CAM_HEIGHT);
   
-  /* Task 4: Convert the image to greyscale with increased brightness (while clamping) and display it */
-  pos = grid.getPosition(1, 0);
-  const gs = ImageProcessor.greyscale(processingFrame);
-  image(gs, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  /**
+   * Task 4: Convert the image to greyscale with increased brightness (while clamping) and display it
+   */
+  image(ImageProcessor.greyscale(processingFrame), grid.getPosition(1, 0).x, grid.getPosition(1, 0).y, CAM_WIDTH, CAM_HEIGHT);
   
   /**
    * Task 6: Extract and Display Individual Color Channels
@@ -116,16 +130,13 @@ function draw() {
   const blueChannel = ImageProcessor.extractChannel(processingFrame, "blue");
   
   // Display the red channel
-  pos = grid.getPosition(0, 1);
-  image(redChannel, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  image(redChannel, grid.getPosition(0, 1).x, grid.getPosition(0, 1).y, CAM_WIDTH, CAM_HEIGHT);
   
   // Display the green channel.
-  pos = grid.getPosition(1, 1);
-  image(greenChannel, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  image(greenChannel, grid.getPosition(1, 1).x, grid.getPosition(1, 1).y, CAM_WIDTH, CAM_HEIGHT);
   
   // Display the blue channel.
-  pos = grid.getPosition(2, 1);
-  image(blueChannel, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  image(blueChannel, grid.getPosition(2, 1).x, grid.getPosition(2, 1).y, CAM_WIDTH, CAM_HEIGHT);
   
   /**
    * Task 7: Apply Dynamic Thresholding to Each Color Channel
@@ -135,28 +146,24 @@ function draw() {
   const redThreshImg = ImageProcessor.applyFilter(redChannel, (r, g, b, a) =>
     ImageProcessor.threshold(r, g, b, a, "red", redThresholdSlider.value())
   );
-  pos = grid.getPosition(0, 2);
-  image(redThreshImg, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  image(redThreshImg, grid.getPosition(0, 2).x, grid.getPosition(0, 2).y, CAM_WIDTH, CAM_HEIGHT);
   
   // Display green channel thresholding
   const greenThreshImg = ImageProcessor.applyFilter(greenChannel, (r, g, b, a) =>
     ImageProcessor.threshold(r, g, b, a, "green", greenThresholdSlider.value())
   );
-  pos = grid.getPosition(1, 2);
-  image(greenThreshImg, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  image(greenThreshImg, grid.getPosition(1, 2).x, grid.getPosition(1, 2).y, CAM_WIDTH, CAM_HEIGHT);
   
   // Display blue channel thresholding
   const blueThreshImg = ImageProcessor.applyFilter(blueChannel, (r, g, b, a) =>
     ImageProcessor.threshold(r, g, b, a, "blue", blueThresholdSlider.value())
   );
-  pos = grid.getPosition(2, 2);
-  image(blueThreshImg, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  image(blueThreshImg, grid.getPosition(2, 2).x, grid.getPosition(2, 2).y, CAM_WIDTH, CAM_HEIGHT);
   
   /**
    * Task 9: Display the Live Video Feed and Colour Space Conversions
    */
 
   // Display the live video feed
-  pos = grid.getPosition(0, 4);
-  image(video, pos.x, pos.y, settings.camWidth, settings.camHeight);
+  image(video, grid.getPosition(0, 3).x, grid.getPosition(0, 3).y, CAM_WIDTH, CAM_HEIGHT);
 }

@@ -11,19 +11,15 @@ class ImageProcessor {
    * @returns {p5.Image} The processed greyscale image.
    */
   static greyscale(img) {
-    // Create a new image with the same dimensions as the original
     let processedImg = createImage(img.width, img.height);
     processedImg.copy(img, 0, 0, img.width, img.height, 0, 0, img.width, img.height);
     processedImg.loadPixels();
 
-    // Calculate total number of pixels in the image
     const totalPixels = img.width * img.height;
 
-    // Loop over every pixel in the image
     for (let i = 0; i < totalPixels; i++) {
       const index = i * 4;
       
-      // Retrieve original red, green, and blue values
       const r = processedImg.pixels[index];
       const g = processedImg.pixels[index + 1];
       const b = processedImg.pixels[index + 2];
@@ -44,11 +40,7 @@ class ImageProcessor {
       processedImg.pixels[index + 1] = bright;
       processedImg.pixels[index + 2] = bright;
     }
-
-    // Update the pixels array to reflect changes on the image
     processedImg.updatePixels();
-    
-    // Return the processed image
     return processedImg;
   }
 
@@ -66,14 +58,11 @@ class ImageProcessor {
     img.loadPixels();
     channelImg.loadPixels();
 
-    // Calculate total number of pixels in the image
     const totalPixels = img.width * img.height;
 
-    // Loop through each pixel to extract the desired channel
     for (let i = 0; i < totalPixels; i++) {
       const index = i * 4;
       
-      // Get red, green, blue and alpha values from the original image
       const r = img.pixels[index];
       const g = img.pixels[index + 1];
       const b = img.pixels[index + 2];
@@ -93,15 +82,10 @@ class ImageProcessor {
         channelImg.pixels[index + 1] = 0;
         channelImg.pixels[index + 2] = b;
       }
-      
-      // Preserve the original alpha value
+
       channelImg.pixels[index + 3] = a;
     }
-
-    // Update pixel data of the new channel image
     channelImg.updatePixels();
-    
-    // Return the image with the extracted channel
     return channelImg;
   }
 
@@ -136,17 +120,11 @@ class ImageProcessor {
    * @returns {p5.Image} The filtered image.
    */
   static applyFilter(img, filterCallback) {
-    // Load pixel data for the image
     img.loadPixels();
-
-    // Calculate total number of pixels in the image
     const totalPixels = img.width * img.height;
-
-    // Loop through each pixel and apply the filter callback function
     for (let i = 0; i < totalPixels; i++) {
       const index = i * 4;
       
-      // Retrieve current pixel values
       const r = img.pixels[index];
       const g = img.pixels[index + 1];
       const b = img.pixels[index + 2];
