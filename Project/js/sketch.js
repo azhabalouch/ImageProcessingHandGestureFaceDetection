@@ -104,7 +104,7 @@ function draw() {
   }
 
   // Select the current frame (snapshot if available, otherwise live video)
-  let currentFrame = (liveMode ? video : snapshot) || video;
+  let processingFrame = snapshot ? snapshot : video.get();
 
   push();
 
@@ -112,55 +112,47 @@ function draw() {
   translate(CAM_WIDTH, 0);
   scale(-1, 1);
 
-  // Display the current frame
-  image(currentFrame, 0, 0, CAM_WIDTH, CAM_HEIGHT);
-
   // Helper variables to avoid hardcoding
   let paddingX = 10;
   let paddingY = 30;
 
-  // If a snapshot exists, display additional processed versions
-  if (snapshot) {
-    /**
-     * Task 1 - 3: Show resized original snapshot
-     */
-    image(snapshot, 0, 0, CAM_WIDTH, CAM_HEIGHT);
-    
-    /**
-     * Task 4 - 5: Convert to greyscale, increase brightness + %20
-     */
-    const gs = greyscale(snapshot);
-    image(gs, -CAM_WIDTH -paddingX, 0, CAM_WIDTH, CAM_HEIGHT);
+  /**
+   * Task 1 - 3: Show resized original snapshot
+   */
+  image(processingFrame, 0, 0, CAM_WIDTH, CAM_HEIGHT);
+  
+  /**
+   * Task 4 - 5: Convert to greyscale, increase brightness + %20
+   */
+  const gs = greyscale(processingFrame);
+  image(gs, -CAM_WIDTH -paddingX, 0, CAM_WIDTH, CAM_HEIGHT);
 
-    /**
-     * Task 6: Extract and display the individual color channels
-     */
-    let redChannel = extractChannel(snapshot, "red");
-    let greenChannel = extractChannel(snapshot, "green");
-    let blueChannel = extractChannel(snapshot, "blue");
-    
-    // Positions according to grid layout
-    image(redChannel, 0, CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
-    image(greenChannel, -CAM_WIDTH -paddingX, CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
-    image(blueChannel, 2 * (-CAM_WIDTH -paddingX), CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
+  /**
+   * Task 6: Extract and display the individual color channels
+   */
+  let redChannel = extractChannel(processingFrame, "red");
+  let greenChannel = extractChannel(processingFrame, "green");
+  let blueChannel = extractChannel(processingFrame, "blue");
+  
+  // Positions according to grid layout
+  image(redChannel, 0, CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
+  image(greenChannel, -CAM_WIDTH -paddingX, CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
+  image(blueChannel, 2 * (-CAM_WIDTH -paddingX), CAM_HEIGHT + paddingY, CAM_WIDTH, CAM_HEIGHT);
 
-    /**
-     * Task 7: Apply threshold to the individual color channels using slider
-     */
-    let blueThreshImg = applyFilter(blueChannel, blueThresholdCallback);
-    let redThreshImg = applyFilter(redChannel, redThresholdCallback);
-    let greenThreshImg = applyFilter(greenChannel, greenThresholdCallback);
+  /**
+   * Task 7: Apply threshold to the individual color channels using slider
+   */
+  let blueThreshImg = applyFilter(blueChannel, blueThresholdCallback);
+  let redThreshImg = applyFilter(redChannel, redThresholdCallback);
+  let greenThreshImg = applyFilter(greenChannel, greenThresholdCallback);
 
-    // Positions according to grid layout
-    image(redThreshImg, 0, 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
-    image(greenThreshImg, -CAM_WIDTH -paddingX, 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
-    image(blueThreshImg, 2 * (-CAM_WIDTH -paddingX), 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
-  }
+  // Positions according to grid layout
+  image(redThreshImg, 0, 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
+  image(greenThreshImg, -CAM_WIDTH -paddingX, 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
+  image(blueThreshImg, 2 * (-CAM_WIDTH -paddingX), 2 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
 
-  // if(liveMode){
-  //   // Display the live video
-  //   image(video, 0, 3.5 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
-  // }
+  // Repeat original video according to requirements
+  image(video, 0, 3.5 * (CAM_HEIGHT + paddingY), CAM_WIDTH, CAM_HEIGHT);
 
   pop();
 }
