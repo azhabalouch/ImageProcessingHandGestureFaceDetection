@@ -25,9 +25,9 @@ class CameraManager {
       stream.getTracks().forEach(track => track.stop());
     } catch (err) {
       console.error('Camera access denied or error:', err);
-      noCamera = true;                // Flag indicating no camera access
+      noCamera = true;
     } finally {
-      cameraCheckDone = true;         // Mark the camera check as completed
+      cameraCheckDone = true;
     }
   }
   
@@ -41,9 +41,9 @@ class CameraManager {
       /**
        * Task 2: Resize the video according to requirements.
        */
-      video = createCapture(VIDEO);   // Create a video capture instance
+      video = createCapture(VIDEO);
       video.size(CAM_WIDTH, CAM_HEIGHT);
-      video.hide();                   // Hide default video element
+      video.hide();
     }
   }
 }

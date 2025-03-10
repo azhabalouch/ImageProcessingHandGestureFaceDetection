@@ -11,26 +11,19 @@ class FaceDetector {
    * @param {Function} onModelReady - Optional callback called once the faceApi model is ready.
    */
   constructor(video, onModelReady) {
-    // The p5 video element holding the live camera feed.
     this.video = video;
-    
-    // Holds the array of detections returned by faceApi.
     this.detections = [];
-    
-    // Holds the bounding box (x, y, w, h) of the detected face in the video.
     this.faceBox = null;
-
-    // Options for ml5 faceApi: detect with landmarks but no descriptors to save on computation.
     const options = { withLandmarks: true, withDescriptors: false };
     
-    // Load the ml5 faceApi model. 'this.model' will be used to perform detection.
+    // Load the ml5 faceApi model
     this.model = ml5.faceApi(this.video.elt, options, () => {
       console.log("Face API model loaded.");
 
-      // If a callback function was provided, call it here.
+      // If a callback function was provided
       if (onModelReady) onModelReady();
 
-      // Begin continuous detection once the model is ready.
+      // Begin continuous detection once the model is ready
       this.detect();
     });
   }
@@ -48,7 +41,7 @@ class FaceDetector {
       
       this.detections = results;
 
-      // If at least one face is detected, store its bounding box.
+      // If at least one face is detected, store its bounding box
       if (this.detections && this.detections.length > 0) {
         const { _x: x, _y: y, _width: w, _height: h } = this.detections[0].alignedRect._box;
         this.faceBox = { x, y, w, h };
@@ -56,7 +49,7 @@ class FaceDetector {
         this.faceBox = null;
       }
       
-      // Call detect again to keep updating face detection results in real-time.
+      // Call detect again to keep updating face detection results in real-time
       this.detect();
     });
   }
@@ -74,15 +67,14 @@ class FaceDetector {
    * @returns {p5.Image} The frame with the modification applied.
    */
   applyModificationToFrame(frame, mod) {
-    // If no face is detected, just return the original frame.
     if (!this.faceBox) return frame;
     
-    // Extract bounding box of the face region.
+    // Extract bounding box of the face region
     let { x, y, w, h } = this.faceBox;
-    
-    // Get the face region from the frame.
+  
     let faceRegion = frame.get(x, y, w, h);
 
+    // Apply filter to face region
     let modifiedFace;
     if (mod === '1') {
       // Greyscale
@@ -101,20 +93,19 @@ class FaceDetector {
 
     } else if (mod === '4') {
       // Pixelation:
-      // Step 1: Convert to greyscale
+      // Convert to greyscale
       let greyFace = ImageProcessor.greyscale(faceRegion);
 
-      // Step 2: Scale down and then back up to achieve a pixelation effect
-      let blockSize = 5; // The higher this number, the chunkier the pixels
+      // Scale down and then back up to achieve a pixelation effect
+      let blockSize = 5;
       let smallW = floor(w / blockSize);
       let smallH = floor(h / blockSize);
 
-      // Create two p5 images to handle scaling down & up
-      // 1) Scale down the face to a smaller resolution
+      // Scale down the face to a smaller resolution
       let scaledDown = createImage(smallW, smallH);
       scaledDown.copy(greyFace, 0, 0, w, h, 0, 0, smallW, smallH);
 
-      // 2) Now scale the scaled-down image back up to the original face size
+      // Scale the scaled-down image back up to the original face size
       let scaledUp = createImage(w, h);
       scaledUp.copy(scaledDown, 0, 0, smallW, smallH, 0, 0, w, h);
 

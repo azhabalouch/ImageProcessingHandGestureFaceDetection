@@ -280,7 +280,7 @@ function draw() {
   image(currentFrame, grid.getPosition(0, 5).x, grid.getPosition(0, 5).y, CAM_WIDTH, CAM_HEIGHT);
 
   if (gestureDetector){
-    // Draw keypoints on top of the image.
+    // Draw keypoints to help hand placement
     push();
       // Translate the drawing context so that keypoints align with the image's top-left corner.
       translate(grid.getPosition(0, 5).x, grid.getPosition(0, 5).y);
