@@ -5,7 +5,7 @@
  * - https://www.freecodecamp.org/news/comment-your-javascript-code/ */
 
 /****************************************************
- * Global Settings & Variables
+ * Global settings & variables
  ****************************************************/
 
 /**
@@ -14,21 +14,26 @@
 const CAM_WIDTH = 160;
 const CAM_HEIGHT = 120;
 
-// Global variables for video capture and processing
-let video;                    // Webcam video
-let grid;                     // Instance for grid layout
-let snapshot;                 // p5.Image snapshot captured from video
-let noCamera = false;         // Flag indicating whether a camera is available
-let cameraCheckDone = false;  // Flag to indicate camera detection completion
-let liveMode = false;         // Toggle for live video mode
-let detectCameraPromise;      // Promise for asynchronous camera detection
+// Video capture and processing
+let video;
+let snapshot;
+let noCamera = false;
+let cameraCheckDone = false;
+let liveMode = false;
+let detectCameraPromise;
 
+// Dynamic threshold sliders
+let redThresholdSlider, greenThresholdSlider, blueThresholdSlider;
+let hsvThresholdSlider, ycbcrThresholdSlider;
 
-// Global sliders for dynamic thresholding
-let redThresholdSlider, greenThresholdSlider, blueThresholdSlider, hsvThresholdSlider, ycbcrThresholdSlider;
-
-// Global radio variables for HSV and YCbCr threshold selection
+// Radio buttons for HSV and YCbCr threshold selection
 let hsvRadio, ycbcrRadio;
+
+// Face detection
+let faceDetector, currentMod = null;
+
+// Layout for positioning
+let grid;
 
 /**
  * Initiates camera detection before setup
@@ -43,6 +48,9 @@ function preload() {
   }
 }
 
+/**
+ * Setup initializes the canvas, video capture, face detector, UI elements.
+ */
 function setup() {
   createCanvas(1440, 1080);
   pixelDensity(1);
@@ -51,18 +59,23 @@ function setup() {
     detectCameraPromise.then(() => {
       if (!noCamera) {
         CameraManager.initVideo();
+
+        // Initialize the FaceDetector
+        faceDetector = new FaceDetector(video, () => {
+          console.log("FaceDetector is ready.");
+        });
       }
     });
   }
 
-  // To add space between grid
+  // Layout padding
   let paddingX = 5;
   let paddingY = 30;
 
-  // Initialize the GridLayout
+  // Grid layout for displaying images
   grid = new GridLayout(0, 0, CAM_WIDTH, CAM_HEIGHT, paddingX, paddingY);
 
-  // Create and position the 'Take Snapshot' button
+  // Snapshot button
   createButton('Take Snapshot')
     .position(grid.getPosition(0, 1).x + paddingX*2, grid.getPosition(0, 1).y - paddingY/2)
     .mousePressed(() => {
@@ -72,7 +85,7 @@ function setup() {
       }
     });
 
-  // Create and position the 'Go Live' button
+  // Live mode button
   createButton('Go Live')
     .position(grid.getPosition(1, 1).x + paddingX*2, grid.getPosition(1, 1).y - paddingY/2)
     .mousePressed(() => {
@@ -80,27 +93,27 @@ function setup() {
       snapshot = null;
     });
 
-  // Create and position the Red Threshold slider
+  // Create red threshold slider
   redThresholdSlider = createSlider(0, 255, 128);
   redThresholdSlider.position(grid.getPosition(0, 3).x + paddingX, grid.getPosition(0, 3).y - paddingY/2);
 
-  // Create and position the Green Threshold slider
+  // Create green threshold slider
   greenThresholdSlider = createSlider(0, 255, 128);
   greenThresholdSlider.position(grid.getPosition(1, 3).x + paddingX, grid.getPosition(1, 3).y - paddingY/2);
 
-  // Create and position the Blue Threshold slider
+  // Create blue threshold slider
   blueThresholdSlider = createSlider(0, 255, 128);
   blueThresholdSlider.position(grid.getPosition(2, 3).x + paddingX, grid.getPosition(2, 3).y - paddingY/2);
 
-  // Create HSV Threshold slider
+  // Create HSV threshold slider
   hsvThresholdSlider = createSlider(0, 255, 128);
   hsvThresholdSlider.position(grid.getPosition(1, 3).x + paddingX, grid.getPosition(2, 5).y - paddingY/2);
 
-  // Create YCbCr Threshold slider
+  // Create YCbCr threshold slider
   ycbcrThresholdSlider = createSlider(0, 255, 128);
   ycbcrThresholdSlider.position(grid.getPosition(2, 3).x + paddingX, grid.getPosition(2, 5).y - paddingY/2);
 
-  // --- Create radio buttons for HSV threshold selection ---
+  // Create radio buttons for HSV threshold selection
   hsvRadio = createRadio();
   hsvRadio.option('H');
   hsvRadio.option('S');
@@ -108,7 +121,7 @@ function setup() {
   hsvRadio.selected('S'); // default selection
   hsvRadio.position(grid.getPosition(1, 5).x, grid.getPosition(1, 5).y + paddingY);
 
-  // --- Create radio buttons for YCbCr threshold selection ---
+  // Create radio buttons for YCbCr threshold selection
   ycbcrRadio = createRadio();
   ycbcrRadio.option('Y');
   ycbcrRadio.option('Cb');
@@ -117,10 +130,14 @@ function setup() {
   ycbcrRadio.position(grid.getPosition(2, 5).x, grid.getPosition(2, 5).y + paddingY);
 }
 
+/**
+ * draw() loops continuously, handling camera checks, displaying images,
+ * 
+ * and applying transformations/filters as needed.
+ */
 function draw() {
   background(255);
   
-  // If camera detection is still in progress
   if (!cameraCheckDone) {
     fill(0);
     textSize(24);
@@ -128,7 +145,6 @@ function draw() {
     return; // Exit draw until camera detection is complete
   }
   
-  // If no camera is detected
   if (noCamera) {
     fill(255, 0, 0);
     textSize(24);
@@ -136,37 +152,39 @@ function draw() {
     return; // Exit draw to avoid further processing
   }
   
-  /* Task 1: Use the snapshot if available; otherwise, use the current frame from the live video */
+  /**
+   * Task 1: Use the snapshot or video as buffer
+   */
   let processingFrame = snapshot ? snapshot : video.get();
   
-  /* Task 3: Display the original webcam image */
+  /**
+   * Task 3: Display the original webcam image
+   */
   image(processingFrame, grid.getPosition(0, 0).x, grid.getPosition(0, 0).y, CAM_WIDTH, CAM_HEIGHT);
   
   /**
-   * Task 4: Convert the image to greyscale with increased brightness (while clamping) and display it
+   * Task 4 - 5: Convert the image to greyscale with brightness +%20
    */
   image(ImageProcessor.greyscale(processingFrame), grid.getPosition(1, 0).x, grid.getPosition(1, 0).y, CAM_WIDTH, CAM_HEIGHT);
   
   /**
-   * Task 6: Extract and Display Individual Color Channels
+   * Task 6: Display individual color channels
    */
 
-  // Extract the red, green, and blue channels from the processing frame.
-  const redChannel = ImageProcessor.extractChannel(processingFrame, "red");
-  const greenChannel = ImageProcessor.extractChannel(processingFrame, "green");
-  const blueChannel = ImageProcessor.extractChannel(processingFrame, "blue");
-  
   // Display the red channel
+  const redChannel = ImageProcessor.extractChannel(processingFrame, "red");
   image(redChannel, grid.getPosition(0, 1).x, grid.getPosition(0, 1).y, CAM_WIDTH, CAM_HEIGHT);
   
-  // Display the green channel.
+  // Display the green channel
+  const greenChannel = ImageProcessor.extractChannel(processingFrame, "green");
   image(greenChannel, grid.getPosition(1, 1).x, grid.getPosition(1, 1).y, CAM_WIDTH, CAM_HEIGHT);
   
-  // Display the blue channel.
+  // Display the blue channel
+  const blueChannel = ImageProcessor.extractChannel(processingFrame, "blue");
   image(blueChannel, grid.getPosition(2, 1).x, grid.getPosition(2, 1).y, CAM_WIDTH, CAM_HEIGHT);
   
   /**
-   * Task 7: Apply Dynamic Thresholding to Each Color Channel
+   * Task 7: Apply dynamic thresholding to each color channel
    */
 
   // Display red channel thresholding
@@ -188,18 +206,17 @@ function draw() {
   image(blueThreshImg, grid.getPosition(2, 2).x, grid.getPosition(2, 2).y, CAM_WIDTH, CAM_HEIGHT);
   
   /**
-   * Task 9 - 10: Display the Live Video Feed and Colour Space Conversions
+   * Task 9 - 10: Repeat image and colour space conversions
    */
 
-  // Display the live video feed
-  image(video, grid.getPosition(0, 3).x, grid.getPosition(0, 3).y, CAM_WIDTH, CAM_HEIGHT);
+  image(processingFrame, grid.getPosition(0, 3).x, grid.getPosition(0, 3).y, CAM_WIDTH, CAM_HEIGHT);
 
-  // Colour space conversion #1: Convert the image to HSV.
-  let hsvConverted = ImageProcessor.convertToHSV(video);
+  // Convert to HSV.
+  let hsvConverted = ImageProcessor.convertToHSV(processingFrame);
   image(hsvConverted, grid.getPosition(1, 3).x, grid.getPosition(1, 3).y, CAM_WIDTH, CAM_HEIGHT);
 
-  // Colour space conversion #2: Convert the image to YCbCr
-  let ycbcrConverted = ImageProcessor.convertToYCbCr(video);
+  // Convert to YCbCr
+  let ycbcrConverted = ImageProcessor.convertToYCbCr(processingFrame);
   image(ycbcrConverted, grid.getPosition(2, 3).x, grid.getPosition(2, 3).y, CAM_WIDTH, CAM_HEIGHT);
 
   // Display HSV thresholding
@@ -214,4 +231,29 @@ function draw() {
   );
   image(ycbcrThresholded, grid.getPosition(2, 4).x, grid.getPosition(2, 4).y, CAM_WIDTH, CAM_HEIGHT);
 
+  /**
+   * TASK 12 & 13: Face detection and modification.
+   */
+
+  // Get original image for modification
+  let frame = video.get();
+
+  // Display different modes
+  if (currentMod) {
+    frame = faceDetector.applyModificationToFrame(frame, currentMod);
+  }
+  image(frame, grid.getPosition(0, 4).x, grid.getPosition(0, 4).y, CAM_WIDTH, CAM_HEIGHT);
+}
+
+/**
+ * keyPressed handler to select a face-modification mode.
+ * '1' -> Greyscale
+ * '2' -> Blur
+ * '3' -> HSV
+ * '4' -> Pixelation
+ */
+function keyPressed() {
+  if (['1','2','3','4'].includes(key)) {
+    currentMod = key;
+  }
 }
