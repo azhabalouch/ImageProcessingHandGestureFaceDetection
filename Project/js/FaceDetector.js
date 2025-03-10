@@ -1,4 +1,10 @@
-// FaceDetector class for face detection and applying image modifications.
+/****************************************************
+ * FaceDetector class
+ * --------------------------------------------------
+ * Source: https://docs.ml5js.org/#/reference/facemesh
+ * 
+ * Face detection and applying image modifications.
+ ****************************************************/
 class FaceDetector {
   /**
    * @param {p5.MediaElement} video - p5 video element used for detection.

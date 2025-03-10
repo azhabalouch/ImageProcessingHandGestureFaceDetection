@@ -52,7 +52,7 @@ function preload() {
  * Setup initializes the canvas, video capture, face detector, UI elements.
  */
 function setup() {
-  createCanvas(1440, 1080);
+  createCanvas(1080, 1080);
   pixelDensity(1);
   
   if (detectCameraPromise) {
@@ -60,7 +60,7 @@ function setup() {
       if (!noCamera) {
         CameraManager.initVideo();
 
-        // Initialize the FaceDetector
+        // Initialize the face detector
         faceDetector = new FaceDetector(video, () => {
           console.log("FaceDetector is ready.");
         });
