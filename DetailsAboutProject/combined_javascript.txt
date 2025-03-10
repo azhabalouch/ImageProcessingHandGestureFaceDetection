@@ -1,0 +1,1044 @@
+
+ -------------------- CameraManager.js ------------------------ 
+
+/****************************************************
+ * CameraManager Class
+ * --------------------------------------------------
+ * Sources:
+ * - https://stackoverflow.com/questions/30047056/is-it-possible-to-check-if-the-user-has-a-camera-and-microphone-and-if-the-permi
+ * - https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/enumerateDevices  
+ * - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+ * 
+ * Handles camera detection and initialization.
+ ****************************************************/
+class CameraManager {
+  /**
+   * Asynchronously detects if a camera is available and checks for permission.
+   * 
+   * If access is granted, it briefly activates the camera and then stops the stream.
+   * 
+   * If access is denied or an error occurs, it updates the `noCamera` flag accordingly.
+   */
+  static async detectCamera() {
+    try {
+      // Request access to the user's camera
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+      // Stop all tracks since stream is only used for checking permission
+      stream.getTracks().forEach(track => track.stop());
+    } catch (err) {
+      console.error('Camera access denied or error:', err);
+      noCamera = true;
+    } finally {
+      cameraCheckDone = true;
+    }
+  }
+  
+  /**
+   * Initializes video capture if a camera is available.
+   * 
+   * Creates a video capture element with specified dimensions and hides it.
+   */
+  static initVideo() {
+    if (!noCamera) {
+      /**
+       * Task 2: Resize the video according to requirements.
+       */
+      video = createCapture(VIDEO);
+      video.size(CAM_WIDTH, CAM_HEIGHT);
+      video.hide();
+    }
+  }
+}
+
+
+ -------------------- FaceDetector.js ------------------------ 
+
+/****************************************************
+ * FaceDetector class
+ * --------------------------------------------------
+ * Source: https://docs.ml5js.org/#/reference/facemesh
+ * 
+ * Face detection and applying image modifications.
+ ****************************************************/
+class FaceDetector {
+  /**
+   * @param {p5.MediaElement} video - p5 video element used for detection.
+   * @param {Function} onModelReady - Optional callback called once the faceApi model is ready.
+   */
+  constructor(video, onModelReady) {
+    this.video = video;
+    this.detections = [];
+    this.faceBox = null;
+    const options = { withLandmarks: true, withDescriptors: false };
+    
+    // Load the ml5 faceApi model
+    this.model = ml5.faceApi(this.video.elt, options, () => {
+      console.log("Face API model loaded.");
+
+      // If a callback function was provided
+      if (onModelReady) onModelReady();
+
+      // Begin continuous detection once the model is ready
+      this.detect();
+    });
+  }
+
+  /**
+   * Continuously detects faces from the live video stream, storing detection results
+   * in `this.detections` Also extracts and stores the first face bounding box.
+   */
+  detect() {
+    this.model.detect(this.video.elt, (err, results) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      
+      this.detections = results;
+
+      // If at least one face is detected, store its bounding box
+      if (this.detections && this.detections.length > 0) {
+        const { _x: x, _y: y, _width: w, _height: h } = this.detections[0].alignedRect._box;
+        this.faceBox = { x, y, w, h };
+      } else {
+        this.faceBox = null;
+      }
+      
+      // Call detect again to keep updating face detection results in real-time
+      this.detect();
+    });
+  }
+
+  /**
+   * Applies the specified modification to the face region in the given frame.
+   * Available modifications:
+   *   '1' -> greyscale
+   *   '2' -> blur
+   *   '3' -> HSV conversion
+   *   '4' -> pixelation (simplified approach: greyscale + low-res scale)
+   *
+   * @param {p5.Image} frame - The full camera frame to modify.
+   * @param {string} mod - Code indicating which modification to apply.
+   * @returns {p5.Image} The frame with the modification applied.
+   */
+  applyModificationToFrame(frame, mod) {
+    if (!this.faceBox) return frame;
+    
+    // Extract bounding box of the face region
+    let { x, y, w, h } = this.faceBox;
+  
+    let faceRegion = frame.get(x, y, w, h);
+
+    // Apply filter to face region
+    let modifiedFace;
+    if (mod === '1') {
+      // Greyscale
+      modifiedFace = ImageProcessor.greyscale(faceRegion);
+
+    } else if (mod === '2') {
+      // Blur
+      let pg = createGraphics(w, h);
+      pg.image(faceRegion, 0, 0);
+      pg.filter(BLUR, 10);
+      modifiedFace = pg;
+
+    } else if (mod === '3') {
+      // HSV conversion
+      modifiedFace = ImageProcessor.convertToHSV(faceRegion);
+
+    } else if (mod === '4') {
+      // Pixelation:
+      // Convert to greyscale
+      let greyFace = ImageProcessor.greyscale(faceRegion);
+
+      // Scale down and then back up to achieve a pixelation effect
+      let blockSize = 5;
+      let smallW = floor(w / blockSize);
+      let smallH = floor(h / blockSize);
+
+      // Scale down the face to a smaller resolution
+      let scaledDown = createImage(smallW, smallH);
+      scaledDown.copy(greyFace, 0, 0, w, h, 0, 0, smallW, smallH);
+
+      // Scale the scaled-down image back up to the original face size
+      let scaledUp = createImage(w, h);
+      scaledUp.copy(scaledDown, 0, 0, smallW, smallH, 0, 0, w, h);
+
+      modifiedFace = scaledUp;
+
+    } else {
+      // If no valid modification code, return the original frame
+      return frame;
+    }
+
+    // Copy the modified face region back onto the main frame
+    frame.copy(modifiedFace, 0, 0, w, h, x, y, w, h);
+    return frame;
+  }
+}
+ -------------------- GridLayout.js ------------------------ 
+
+/****************************************************
+ * GridLayout Class
+ * --------------------------------------------------
+ * Manages the grid layout for displaying images.
+ * 
+ * `Constructor`:
+ * Initializes the grid layout with the following parameters:
+ * - baseX and baseY: Define the starting coordinates (top-left corner) of the grid.
+ * - cellWidth and cellHeight: Specify the dimensions of each cell within the grid.
+ * - paddingX and paddingY: Determine the horizontal and vertical spacing between cells.
+ * 
+ * This setup allows for precise control over the positioning and spacing of images within the grid.
+ * 
+ * `getPosition` Method:
+ * Calculates the position of a specific cell based on its column (col) and row (row) indices.
+ * - The x-coordinate is calculated as: x = baseX + col × (cellWidth + paddingX)
+ * - The y-coordinate is calculated as: y = baseY + row × (cellHeight + paddingY)
+ * 
+ * This calculation ensures that each image is placed correctly within the grid, respecting the defined cell size and padding.
+ * 
+ * Source:
+ * 
+ * This implementation is inspired by the grid template with coordinate display by kchung:
+ * https://editor.p5js.org/kchung/sketches/rkp-wOIF7
+ ****************************************************/
+class GridLayout {
+    /**
+     * Constructor for GridLayout.
+     * @param {number} baseX - Starting X coordinate.
+     * @param {number} baseY - Starting Y coordinate.
+     * @param {number} cellWidth - Width of each cell.
+     * @param {number} cellHeight - Height of each cell.
+     * @param {number} paddingX - Horizontal padding between cells.
+     * @param {number} paddingY - Vertical padding between cells.
+     */
+    constructor(baseX, baseY, cellWidth, cellHeight, paddingX, paddingY) {
+      this.baseX = baseX;
+      this.baseY = baseY;
+      this.cellWidth = cellWidth;
+      this.cellHeight = cellHeight;
+      this.paddingX = paddingX;
+      this.paddingY = paddingY;
+    }
+    
+    /**
+     * Calculates the position for a given cell.
+     * @param {number} col - Column index.
+     * @param {number} row - Row index.
+     * @returns {object} An object with x and y coordinates.
+     */
+    getPosition(col, row) {
+      const x = this.baseX + col * (this.cellWidth + this.paddingX);
+      const y = this.baseY + row * (this.cellHeight + this.paddingY);
+      return { x, y };
+    }
+  }
+ -------------------- HandGestureExtension.js ------------------------ 
+
+/**
+ * GestureDetector
+ * ---------------
+ * Sources:
+ *  - [1] https://stackoverflow.com/questions/60884574/could-tfjs-models-handpose-return-multiple-predictions  
+ *      → Informed the decision to process a single-hand prediction.
+ *  - [2] https://github.com/tensorflow/tfjs-models/tree/master/handpose  
+ *      → Primary reference for loading and using the HandPose model.
+ *  - [3] https://github.com/andypotato/fingerpose  
+ *      → Inspired the gesture detection logic (mapping finger extensions to filter numbers).
+ *  - [4] https://github.com/ml5js/ml5-library/tree/main/examples/p5js/Handpose  
+ *      → Provided example code for event binding and hand keypoint handling.
+ *  - [5] https://docs.ml5js.org/#/reference/handpose  
+ *      → API documentation that guided method names and event usage.
+ *  - [6] https://www.youtube.com/watch?v=vfNHdVbE-l4&t=459s  
+ *      → Offered insight on threshold tuning for finger extension (informs FINGER_THRESHOLDS).
+ *  - [7] https://www.youtube.com/watch?v=IF414I26_K8  
+ *      → Supplemented understanding of real-time hand predictions and gesture mapping.
+ *  - [8] https://www.youtube.com/watch?v=Kr4s5sLoROY  
+ *      → Provided a practical demo influencing the overall gesture logic.
+ *  - [9] https://editor.p5js.org/Samathingamajig/sketches/BV_kqU0Ik  
+ *      → Served as a reference for rendering keypoints and understanding the event-driven flow.
+ *
+ * Class to handle:
+ *  - HandPose model readiness
+ *  - Real-time hand predictions
+ *  - Gesture detection (mapping recognized finger poses to filter numbers)
+ */
+class GestureDetector {
+  /**
+   * @constructor
+   * @param {Object} handposeModel - An instance of the loaded HandPose model.
+   *
+   * Sources: [2], [4], [5]  
+   * These sources informed the approach to loading the model and setting up the event-driven prediction mechanism.
+   */
+  constructor(handposeModel) {
+    this.handposeModel = handposeModel;
+    this._hands = [];
+
+    // Finger extension thresholds – tuned based on demo insights and fingerpose reference.
+    // Source: [6] and [3]
+    this.FINGER_THRESHOLDS = {
+      // thumb:       0.20,
+      indexFinger: 0.23,
+      middleFinger:0.25,
+      ringFinger:  0.22,
+      // pinky:       0.20
+    };
+    // Bind event listeners.
+    this._bindModelEvents();
+  }
+
+  /**
+   * _bindModelEvents
+   * ----------------
+   * Private method: sets up the model's "predict" event listener,
+   * updating our private _hands array whenever new predictions arrive.
+   *
+   * Source: [4], [5]  
+   * The ml5.js HandPose examples show how to bind the "predict" event to update keypoints.
+   */
+  _bindModelEvents() {
+    if (!this.handposeModel || typeof this.handposeModel.on !== "function") {
+      console.warn("HandPose model is invalid or not event-driven.");
+      return;
+    }
+    this.handposeModel.on("predict", (predictions) => {
+      this._hands = predictions;
+    });
+  }
+
+  /**
+   * onHandPoseModelReady
+   * --------------------
+   * Logs a message indicating the HandPose model is successfully loaded.
+   *
+   * Source: [2], [4]  
+   * The model readiness callback in the official examples uses similar logging.
+   */
+  onHandPoseModelReady() {
+    console.log("HandPose model loaded and event bound.");
+  }
+
+  /**
+   * detectGesture
+   * -------------
+   * Identifies a gesture based on the positions and distances of recognized finger landmarks.
+   * Returns an object containing the "filter" number: 1, 2, 3, or 0 if no recognized gesture.
+   *
+   * Source: [3], [6], [7], [8]  
+   * The gesture mapping logic (e.g., index only → filter 1; index + middle → filter 2; etc.)
+   * was inspired by the fingerpose library and YouTube tutorials demonstrating practical gesture detection.
+   *
+   * @param {Object} hand - A single hand prediction object from the HandPose model.
+   * @return {Object} - { filter: number }
+   */
+  detectGesture(hand) {
+    // Guard: verify the hand object is valid and has 'annotations'.
+    if (!hand?.annotations) return { filter: 0 };
+
+    // Distance between 'palmBase' and 'middleFingerTip' as a reference.
+    const palmBase = hand.annotations.palmBase?.[0];
+    const middleTip = hand.annotations.middleFinger?.[3];
+    if (!palmBase || !middleTip) return { filter: 0 };
+
+    // Calculate a reference distance for comparing finger extensions.
+    const refDist = this._distPoints(palmBase, middleTip);
+    if (refDist <= 0) return { filter: 0 };
+
+    // Check all five fingers using the helper function.
+    const indexExtended  = this._isFingerExtended(hand.annotations, "indexFinger",  refDist);
+    const middleExtended = this._isFingerExtended(hand.annotations, "middleFinger", refDist);
+    const ringExtended   = this._isFingerExtended(hand.annotations, "ringFinger",   refDist);
+    const pinkyExtended  = this._isFingerExtended(hand.annotations, "pinky",        refDist);
+    const thumbExtended  = this._isFingerExtended(hand.annotations, "thumb",        refDist);
+
+    /*
+      Decide final filter output.
+      - Filter 1: index only
+      - Filter 2: index + middle
+      - Filter 3: index + middle + ring
+      - Filter 0: none recognized
+    */
+    if (indexExtended && !middleExtended && !ringExtended && !pinkyExtended && !thumbExtended) return { filter: 1 };
+    if (indexExtended &&  middleExtended && !ringExtended && !pinkyExtended && !thumbExtended) return { filter: 2 };
+    if (indexExtended &&  middleExtended &&  ringExtended && !pinkyExtended && !thumbExtended) return { filter: 3 };
+
+    return { filter: 0 };
+  }
+
+  /**
+   * _isFingerExtended
+   * -----------------
+   * Checks if a specified finger is extended by comparing the ratio
+   * (finger length / reference distance) to its threshold.
+   *
+   * Source: [3], [6]  
+   * The technique to compare finger length with a reference distance (using keypoint distances)
+   * is adapted from fingerpose and tuning from related YouTube demos.
+   *
+   * @param {Object} annotations - A hand's annotation object from the model.
+   * @param {string} fingerName  - Name of the finger (e.g. 'indexFinger').
+   * @param {number} refDist     - Reference distance for scaling.
+   * @return {boolean}           - True if the finger is extended beyond the threshold.
+   */
+  _isFingerExtended(annotations, fingerName, refDist) {
+    const finger = annotations[fingerName];
+    // Guard: finger data might be missing for certain hands/poses.
+    if (!finger) return false;
+
+    // Typical 4 keypoints: [0]MCP, [1]PIP, [2]DIP, [3]Tip
+    const [px, py] = finger[1]; // PIP
+    const [tx, ty] = finger[3]; // Tip
+
+    const fingerDist = this._distPoints([px, py], [tx, ty]);
+    const ratio = fingerDist / refDist;
+
+    // Default threshold is 0.35 if fingerName is not in FINGER_THRESHOLDS.
+    const threshold = this.FINGER_THRESHOLDS[fingerName] ?? 0.35;
+
+    return ratio > threshold;
+  }
+
+  /**
+   * _distPoints
+   * -----------
+   * Helper method that returns the 2D distance between two points.
+   *
+   * Source: Standard Euclidean distance calculation (common in many demos and examples such as [4]).
+   *
+   * @param {Array<number>} pointA - [x1, y1].
+   * @param {Array<number>} pointB - [x2, y2].
+   * @return {number} - Euclidean distance between pointA and pointB.
+   */
+  _distPoints([x1, y1], [x2, y2]) {
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+  }
+
+  /**
+   * getHands
+   * --------
+   * Public accessor to retrieve the current set of hand predictions.
+   *
+   * Source: [4], [5]  
+   * Similar accessor patterns are used in ml5.js examples to check predictions.
+   */
+  getHands() {
+    return this._hands;
+  }
+  /**
+   * drawKeypoints
+   * -------------
+   * Draws keypoints on the provided canvas context for each detected hand.
+   *
+   * The method checks for a "landmarks" array in each hand prediction, which
+   * contains all keypoints. If not available, it falls back to iterating over
+   * the "annotations" property while avoiding duplicate points.
+   *
+   * Source: [9]  
+   * Inspired by examples showing keypoint rendering in p5.js.
+   *
+   * @param {CanvasRenderingContext2D} ctx - The canvas 2D rendering context.
+   * @param {Object} options - Optional drawing parameters (e.g., { color: 'red', radius: 5 }).
+   */
+  drawKeypoints(ctx, options = {}) {
+    const defaultOptions = { color: 'red', radius: 5 };
+    const { color, radius } = Object.assign({}, defaultOptions, options);
+
+    this._hands.forEach(hand => {
+      let keypoints = [];
+      // Use landmarks if available
+      if (hand.landmarks) {
+        keypoints = hand.landmarks;
+      } else if (hand.annotations) {
+        // Flatten annotations while removing duplicates.
+        const seen = new Set();
+        for (const finger in hand.annotations) {
+          hand.annotations[finger].forEach(point => {
+            const key = point.toString();
+            if (!seen.has(key)) {
+              seen.add(key);
+              keypoints.push(point);
+            }
+          });
+        }
+      }
+      // Draw each keypoint as a circle.
+      keypoints.forEach(point => {
+        const [x, y] = point;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+      });
+    });
+  }
+}
+ -------------------- ImageProcessing.js ------------------------ 
+
+/****************************************************
+ * ImageProcessor Class
+ * --------------------------------------------------
+ * Source: https://www.youtube.com/watch?v=J8Ua4zoObKU
+ * 
+ * Provides static methods for image processing tasks.
+ ****************************************************/
+class ImageProcessor {
+  /**
+   * A helper method that processes every pixel of an image using a callback.
+   * @param {p5.Image} img - The image to process.
+   * @param {function} pixelCallback - A callback that receives (r, g, b, a) and returns new [r, g, b, a].
+   * @returns {p5.Image} The processed image.
+   */
+  static processPixels(img, pixelCallback) {
+    img.loadPixels();
+    const totalPixels = img.width * img.height;
+    for (let i = 0; i < totalPixels; i++) {
+      const index = i * 4;
+      const r = img.pixels[index];
+      const g = img.pixels[index + 1];
+      const b = img.pixels[index + 2];
+      const a = img.pixels[index + 3];
+
+      const [newR, newG, newB, newA] = pixelCallback(r, g, b, a);
+
+      img.pixels[index] = newR;
+      img.pixels[index + 1] = newG;
+      img.pixels[index + 2] = newB;
+      img.pixels[index + 3] = newA;
+    }
+    img.updatePixels();
+    return img;
+  }
+
+  /**
+   * Converts an image to greyscale with increased brightness.
+   * @param {p5.Image} img - The input image.
+   * @returns {p5.Image} The processed greyscale image.
+   */
+  static greyscale(img) {
+    let processedImg = createImage(img.width, img.height);
+    processedImg.copy(img, 0, 0, img.width, img.height, 0, 0, img.width, img.height);
+    
+    return this.processPixels(processedImg, (r, g, b, a) => {
+      // Source: https://idmnyu.github.io/p5.js-image/Filters/index.html
+      // Calculate weighted greyscale value using standard luma formula
+      const grey = r * 0.299 + g * 0.587 + b * 0.0114;
+
+      // Source: https://bioimagebook.github.io/chapters/1-concepts/1-images_and_pixels/images_and_pixels.html#sec-images-luts
+      // Increase brightness by 20%
+      let bright = grey * 1.2;
+      
+      bright = bright > 255 ? 255 : bright;
+      return [bright, bright, bright, a];
+    });
+  }
+
+  /**
+   * Extracts a specific color channel from an image.
+   * @param {p5.Image} img - The input image.
+   * @param {string} channel - The color channel ("red", "green", or "blue").
+   * @returns {p5.Image} A new image with only the specified channel.
+   */
+  static extractChannel(img, channel) {
+    let channelImg = createImage(img.width, img.height);
+    channelImg.copy(img, 0, 0, img.width, img.height, 0, 0, img.width, img.height);
+    
+    return this.processPixels(channelImg, (r, g, b, a) => {
+      if (channel === "red") {
+        return [r, 0, 0, a];
+      } else if (channel === "green") {
+        return [0, g, 0, a];
+      } else if (channel === "blue") {
+        return [0, 0, b, a];
+      }
+      return [r, g, b, a];
+    });
+  }
+
+  /**
+   * Applies thresholding for a specific channel.
+   * @param {number} r - Red channel value.
+   * @param {number} g - Green channel value.
+   * @param {number} b - Blue channel value.
+   * @param {number} a - Alpha channel value.
+   * @param {string} channel - Channel to threshold ("red", "green", or "blue").
+   * @param {number} thresholdVal - Threshold value.
+   * @returns {Array} New RGBA values after thresholding.
+   */
+  static threshold(r, g, b, a, channel, thresholdVal) {
+    if (channel === "red") {
+      return [(r > thresholdVal) ? 255 : 0, 0, 0, a];
+    } else if (channel === "green") {
+      return [0, (g > thresholdVal) ? 255 : 0, 0, a];
+    } else if (channel === "blue") {
+      return [0, 0, (b > thresholdVal) ? 255 : 0, a];
+    }
+    return [r, g, b, a];
+  }
+
+  /**
+   * Applies a filter callback to every pixel of the image.
+   * @param {p5.Image} img - The image to process.
+   * @param {function} filterCallback - A function that takes (r, g, b, a) and returns new RGBA values.
+   * @returns {p5.Image} The filtered image.
+   */
+  static applyFilter(img, filterCallback) {
+    // Create a copy of the image to avoid modifying the original
+    let filteredImg = createImage(img.width, img.height);
+    filteredImg.copy(img, 0, 0, img.width, img.height, 0, 0, img.width, img.height);
+    
+    return this.processPixels(filteredImg, filterCallback);
+  }
+
+  /**
+   * Converts an image from RGB to YCbCr colour space.
+   * Uses the standard BT.601 conversion formula.
+   * @param {p5.Image} img - The input image.
+   * @returns {p5.Image} The converted image.
+   */
+  static convertToYCbCr(img) {
+    let convertedImg = createImage(img.width, img.height);
+    convertedImg.copy(img, 0, 0, img.width, img.height, 0, 0, img.width, img.height);
+    
+    return this.processPixels(convertedImg, (r, g, b, a) => {
+      // Source: (Reference Used)
+      // - https://en.wikipedia.org/wiki/YCbCr
+      // - https://en.wikipedia.org/wiki/Rec._601
+      // - https://web.archive.org/web/20180421030430/http://www.equasys.de/colorconversion.html
+      // - https://stackoverflow.com/questions/35595215/conversion-formula-from-rgb-to-ycbcr
+      // - https://stackoverflow.com/questions/4041840/function-to-convert-ycbcr-to-rgb
+
+      // Convert to YCbCr using BT.601 standard
+      let Y  = 0.299 * r + 0.587 * g + 0.114 * b;
+      let Cb = -0.168736 * r - 0.331264 * g + 0.5 * b + 128;
+      let Cr = 0.5 * r - 0.418688 * g - 0.081312 * b + 128;
+      
+      // Clamp values to [0, 255]
+      Y = Y > 255 ? 255 : (Y < 0 ? 0 : Y);
+      Cb = Cb > 255 ? 255 : (Cb < 0 ? 0 : Cb);
+      Cr = Cr > 255 ? 255 : (Cr < 0 ? 0 : Cr);
+      
+      // For display purposes, assign Y, Cb, Cr to the RGB channels.
+      return [Y, Cb, Cr, a];
+    });
+  }
+
+  /**
+   * Converts an image from RGB to HSV colour space.
+   * Uses the standard algorithm to compute hue, saturation, and value.
+   * The resulting HSV values are scaled to the [0, 255] range for display.
+   * @param {p5.Image} img - The input image.
+   * @returns {p5.Image} The converted image.
+   */
+  static convertToHSV(img) {
+    let convertedImg = createImage(img.width, img.height);
+    convertedImg.copy(img, 0, 0, img.width, img.height, 0, 0, img.width, img.height);
+    
+    return this.processPixels(convertedImg, (r, g, b, a) => {
+      // Source: (Reference Used)
+      // - https://www.rapidtables.com/convert/color/rgb-to-hsv.html
+      // - https://en.wikipedia.org/wiki/HSL_and_HSV
+      // - https://stackoverflow.com/questions/15095909/from-rgb-to-hsv-in-opengl-glsl
+      // - https://stackoverflow.com/questions/17242144/javascript-convert-hsb-hsv-color-to-rgb-accurately
+
+      // Normalize RGB values to the [0, 1] range.
+      let rNorm = r / 255;
+      let gNorm = g / 255;
+      let bNorm = b / 255;
+      
+      // Determine the maximum and minimum values among the normalized channels.
+      let max = Math.max(rNorm, gNorm, bNorm);
+      let min = Math.min(rNorm, gNorm, bNorm);
+      let delta = max - min;
+      
+      // Calculate hue.
+      let h = 0;
+      if (delta === 0) {
+        h = 0;
+      } else if (max === rNorm) {
+        h = 60 * (((gNorm - bNorm) / delta) % 6);
+      } else if (max === gNorm) {
+        h = 60 * (((bNorm - rNorm) / delta) + 2);
+      } else if (max === bNorm) {
+        h = 60 * (((rNorm - gNorm) / delta) + 4);
+      }
+      if (h < 0) h += 360;
+      
+      // Calculate saturation.
+      let s = (max === 0 ? 0 : delta / max);
+      
+      // Value is the maximum channel value.
+      let v = max;
+      
+      // Scale h, s, and v to the [0, 255] range.
+      let scaledH = (h / 360) * 255;
+      let scaledS = s * 255;
+      let scaledV = v * 255;
+      
+      // Clamp values to [0, 255]
+      scaledH = Math.min(255, Math.max(0, scaledH));
+      scaledS = Math.min(255, Math.max(0, scaledS));
+      scaledV = Math.min(255, Math.max(0, scaledV));
+      
+      // For display purposes, assign the scaled HSV values to R, G, B.
+      return [scaledH, scaledS, scaledV, a];
+    });
+  }
+
+  /**
+   * Applies thresholding for a specific channel in the HSV color space.
+   * In the converted image, the red channel holds H, green holds S, and blue holds V.
+   * This version outputs a binary image (white or black).
+   * @param {number} r - The H value.
+   * @param {number} g - The S value.
+   * @param {number} b - The V value.
+   * @param {number} a - The alpha value.
+   * @param {string} channel - The channel to threshold ("H", "S", or "V").
+   * @param {number} thresholdVal - The threshold value.
+   * @returns {Array} New RGBA values after thresholding.
+   */
+  static thresholdHSV(r, g, b, a, channel, thresholdVal) {
+    let value;
+    if (channel === "H") {
+      value = r;
+    } else if (channel === "S") {
+      value = g;
+    } else if (channel === "V") {
+      value = b;
+    }
+    return (value > thresholdVal) ? [255, 255, 255, a] : [0, 0, 0, a];
+  }
+
+  /**
+   * Applies thresholding for a specific channel in the YCbCr color space.
+   * In the converted image, the red channel holds Y, green holds Cb, and blue holds Cr.
+   * This version outputs a binary image (white or black).
+   * @param {number} r - The Y value.
+   * @param {number} g - The Cb value.
+   * @param {number} b - The Cr value.
+   * @param {number} a - The alpha value.
+   * @param {string} channel - The channel to threshold ("Y", "Cb", or "Cr").
+   * @param {number} thresholdVal - The threshold value.
+   * @returns {Array} New RGBA values after thresholding.
+   */
+  static thresholdYCbCr(r, g, b, a, channel, thresholdVal) {
+    let value;
+    if (channel === "Y") {
+      value = r;
+    } else if (channel === "Cb") {
+      value = g;
+    } else if (channel === "Cr") {
+      value = b;
+    }
+    return (value > thresholdVal) ? [255, 255, 255, a] : [0, 0, 0, a];
+  }
+}
+ -------------------- Sketch.js ------------------------ 
+
+/**
+ * Source for comments:
+ * - https://stackoverflow.com/questions/56377294/what-does-the-symbol-do-in-javascript-multiline-comments
+ * - https://stackoverflow.com/questions/127095/what-is-the-preferred-method-of-commenting-javascript-objects-and-methods
+ * - https://www.freecodecamp.org/news/comment-your-javascript-code/ */
+
+/****************************************************
+ * Global settings & variables
+ ****************************************************/
+
+/**
+ * Task 2: Minimum resolution
+ */
+const CAM_WIDTH = 160;
+const CAM_HEIGHT = 120;
+
+// Video capture and processing
+let video;
+let snapshot;
+let noCamera = false;
+let cameraCheckDone = false;
+let liveMode = false;
+let detectCameraPromise;
+
+// Dynamic threshold sliders
+let redThresholdSlider, greenThresholdSlider, blueThresholdSlider;
+let hsvThresholdSlider, ycbcrThresholdSlider;
+
+// Radio buttons for HSV and YCbCr threshold selection
+let hsvRadio, ycbcrRadio;
+
+// Face detection
+let faceDetector, currentMod = null;
+
+// Global variables for handPose detection
+let handPoseModel;
+let gestureDetector;
+let hands = [];           // Array to store detected hand poses
+let activeFilter = 0;  // Start with no filter
+
+// Layout for positioning
+let grid;
+
+/**
+ * Initiates camera detection before setup
+ */
+function preload() {
+  if (navigator.mediaDevices) {
+    detectCameraPromise = CameraManager.detectCamera();
+  } else {
+    console.error('MediaDevices not supported');
+    noCamera = true;
+    cameraCheckDone = true;
+  }
+}
+
+/**
+ * Setup initializes the canvas, video capture, face detector, UI elements.
+ */
+function setup() {
+  createCanvas(1080, 1440);
+  pixelDensity(1);
+  
+  if (detectCameraPromise) {
+    detectCameraPromise.then(() => {
+      if (!noCamera) {
+        CameraManager.initVideo();
+
+        // Initialize the face detector
+        faceDetector = new FaceDetector(video, () => {
+          console.log("FaceDetector is ready.");
+        });
+        
+        // Initialize the hand pose
+        handPoseModel = ml5.handpose(video, () => {
+          console.log('HandPose Model loaded.');
+
+          gestureDetector = new GestureDetector(handPoseModel);
+          gestureDetector.onHandPoseModelReady();
+        });
+      }
+    });
+  }
+
+  // Layout padding
+  let paddingX = 5;
+  let paddingY = 30;
+
+  // Grid layout for displaying images
+  grid = new GridLayout(0, 0, CAM_WIDTH, CAM_HEIGHT, paddingX, paddingY);
+
+  // Snapshot button
+  createButton('Take Snapshot')
+    .position(grid.getPosition(0, 1).x + paddingX*2, grid.getPosition(0, 1).y - paddingY/2)
+    .mousePressed(() => {
+      if (video && cameraCheckDone && !noCamera) {
+        snapshot = video.get();
+        liveMode = false;
+      }
+    });
+
+  // Live mode button
+  createButton('Go Live')
+    .position(grid.getPosition(1, 1).x + paddingX*2, grid.getPosition(1, 1).y - paddingY/2)
+    .mousePressed(() => {
+      liveMode = true;
+      snapshot = null;
+    });
+
+  // Create red threshold slider
+  redThresholdSlider = createSlider(0, 255, 128);
+  redThresholdSlider.position(grid.getPosition(0, 3).x + paddingX, grid.getPosition(0, 3).y - paddingY/2);
+
+  // Create green threshold slider
+  greenThresholdSlider = createSlider(0, 255, 128);
+  greenThresholdSlider.position(grid.getPosition(1, 3).x + paddingX, grid.getPosition(1, 3).y - paddingY/2);
+
+  // Create blue threshold slider
+  blueThresholdSlider = createSlider(0, 255, 128);
+  blueThresholdSlider.position(grid.getPosition(2, 3).x + paddingX, grid.getPosition(2, 3).y - paddingY/2);
+
+  // Create HSV threshold slider
+  hsvThresholdSlider = createSlider(0, 255, 128);
+  hsvThresholdSlider.position(grid.getPosition(1, 3).x + paddingX, grid.getPosition(2, 5).y - paddingY/2);
+
+  // Create YCbCr threshold slider
+  ycbcrThresholdSlider = createSlider(0, 255, 128);
+  ycbcrThresholdSlider.position(grid.getPosition(2, 3).x + paddingX, grid.getPosition(2, 5).y - paddingY/2);
+
+  // Create radio buttons for HSV threshold selection
+  hsvRadio = createRadio();
+  hsvRadio.option('H');
+  hsvRadio.option('S');
+  hsvRadio.option('V');
+  hsvRadio.selected('S'); // default selection
+  hsvRadio.position(grid.getPosition(1, 5).x, grid.getPosition(1, 5).y + paddingY);
+
+  // Create radio buttons for YCbCr threshold selection
+  ycbcrRadio = createRadio();
+  ycbcrRadio.option('Y');
+  ycbcrRadio.option('Cb');
+  ycbcrRadio.option('Cr');
+  ycbcrRadio.selected('Cr'); // default selection
+  ycbcrRadio.position(grid.getPosition(2, 5).x, grid.getPosition(2, 5).y + paddingY);
+}
+
+/**
+ * draw() loops continuously, handling camera checks, displaying images,
+ * 
+ * and applying transformations/filters as needed.
+ */
+function draw() {
+  background(255);
+  
+  if (!cameraCheckDone) {
+    fill(0);
+    textSize(24);
+    text('Checking for camera...', 10, 50);
+    return; // Exit draw until camera detection is complete
+  }
+  
+  if (noCamera) {
+    fill(255, 0, 0);
+    textSize(24);
+    text('No Camera Detected', 10, 50);
+    return; // Exit draw to avoid further processing
+  }
+  
+  /**
+   * Task 1: Use the snapshot or video as buffer
+   */
+  let processingFrame = snapshot ? snapshot : video.get();
+  
+  /**
+   * Task 3: Display the original webcam image
+   */
+  image(processingFrame, grid.getPosition(0, 0).x, grid.getPosition(0, 0).y, CAM_WIDTH, CAM_HEIGHT);
+  
+  /**
+   * Task 4 - 5: Convert the image to greyscale with brightness +%20
+   */
+  image(ImageProcessor.greyscale(processingFrame), grid.getPosition(1, 0).x, grid.getPosition(1, 0).y, CAM_WIDTH, CAM_HEIGHT);
+  
+  /**
+   * Task 6: Display individual color channels
+   */
+
+  // Display the red channel
+  const redChannel = ImageProcessor.extractChannel(processingFrame, "red");
+  image(redChannel, grid.getPosition(0, 1).x, grid.getPosition(0, 1).y, CAM_WIDTH, CAM_HEIGHT);
+  
+  // Display the green channel
+  const greenChannel = ImageProcessor.extractChannel(processingFrame, "green");
+  image(greenChannel, grid.getPosition(1, 1).x, grid.getPosition(1, 1).y, CAM_WIDTH, CAM_HEIGHT);
+  
+  // Display the blue channel
+  const blueChannel = ImageProcessor.extractChannel(processingFrame, "blue");
+  image(blueChannel, grid.getPosition(2, 1).x, grid.getPosition(2, 1).y, CAM_WIDTH, CAM_HEIGHT);
+  
+  /**
+   * Task 7: Apply dynamic thresholding to each color channel
+   */
+
+  // Display red channel thresholding
+  const redThreshImg = ImageProcessor.applyFilter(redChannel, (r, g, b, a) =>
+    ImageProcessor.threshold(r, g, b, a, "red", redThresholdSlider.value())
+  );
+  image(redThreshImg, grid.getPosition(0, 2).x, grid.getPosition(0, 2).y, CAM_WIDTH, CAM_HEIGHT);
+  
+  // Display green channel thresholding
+  const greenThreshImg = ImageProcessor.applyFilter(greenChannel, (r, g, b, a) =>
+    ImageProcessor.threshold(r, g, b, a, "green", greenThresholdSlider.value())
+  );
+  image(greenThreshImg, grid.getPosition(1, 2).x, grid.getPosition(1, 2).y, CAM_WIDTH, CAM_HEIGHT);
+  
+  // Display blue channel thresholding
+  const blueThreshImg = ImageProcessor.applyFilter(blueChannel, (r, g, b, a) =>
+    ImageProcessor.threshold(r, g, b, a, "blue", blueThresholdSlider.value())
+  );
+  image(blueThreshImg, grid.getPosition(2, 2).x, grid.getPosition(2, 2).y, CAM_WIDTH, CAM_HEIGHT);
+  
+  /**
+   * Task 9 - 10: Repeat image and colour space conversions
+   */
+
+  image(processingFrame, grid.getPosition(0, 3).x, grid.getPosition(0, 3).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Convert to HSV.
+  let hsvConverted = ImageProcessor.convertToHSV(processingFrame);
+  image(hsvConverted, grid.getPosition(1, 3).x, grid.getPosition(1, 3).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Convert to YCbCr
+  let ycbcrConverted = ImageProcessor.convertToYCbCr(processingFrame);
+  image(ycbcrConverted, grid.getPosition(2, 3).x, grid.getPosition(2, 3).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Display HSV thresholding
+  let hsvThresholded = ImageProcessor.applyFilter(hsvConverted, (r, g, b, a) =>
+    ImageProcessor.thresholdHSV(r, g, b, a, hsvRadio.value(), hsvThresholdSlider.value())
+  );
+  image(hsvThresholded, grid.getPosition(1, 4).x, grid.getPosition(1, 4).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Display YCbCr thresholding
+  let ycbcrThresholded = ImageProcessor.applyFilter(ycbcrConverted, (r, g, b, a) =>
+    ImageProcessor.thresholdYCbCr(r, g, b, a, ycbcrRadio.value(), ycbcrThresholdSlider.value())
+  );
+  image(ycbcrThresholded, grid.getPosition(2, 4).x, grid.getPosition(2, 4).y, CAM_WIDTH, CAM_HEIGHT);
+
+  /**
+   * TASK 12 - 13 + Extension: Face detection, modification and hand filter logic
+   */
+
+  let frame = video.get();
+
+  // Apply face modification
+  if (currentMod) {
+    frame = faceDetector.applyModificationToFrame(frame, currentMod);
+  }
+  image(frame, grid.getPosition(0, 4).x, grid.getPosition(0, 4).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Apply gesture based color filters
+  if (gestureDetector && gestureDetector.getHands().length > 0) {
+    // Retrieve the most recent hands from the model
+    hands = gestureDetector.getHands();
+
+    // Check for a gesture from the first hand
+    const { filter } = gestureDetector.detectGesture(hands[0]);
+    if (filter >= 1 && filter <= 3 && filter !== activeFilter) {
+      activeFilter = filter;
+    }
+  }
+
+  // Decide which frame transformation to use
+  const currentFrame =
+    activeFilter === 1 ? ImageProcessor.greyscale(video.get()) :
+    activeFilter === 2 ? ImageProcessor.convertToHSV(video.get()) :
+    activeFilter === 3 ? ImageProcessor.convertToYCbCr(video.get()) :
+    video.get();
+
+  // Display final result in bottom row
+  image(currentFrame, grid.getPosition(0, 5).x, grid.getPosition(0, 5).y, CAM_WIDTH, CAM_HEIGHT);
+
+  if (gestureDetector){
+    // Draw keypoints to help hand placement
+    push();
+      // Translate the drawing context so that keypoints align with the image's top-left corner.
+      translate(grid.getPosition(0, 5).x, grid.getPosition(0, 5).y);
+      // Use the GestureDetector instance's drawKeypoints method, passing in the p5.js drawingContext.
+      gestureDetector.drawKeypoints(drawingContext, { color: 'blue', radius: 4 });
+    pop();
+  }
+  
+}
+
+/**
+ * keyPressed handler to select a face-modification mode.
+ * '1' -> Greyscale
+ * '2' -> Blur
+ * '3' -> HSV
+ * '4' -> Pixelation
+ */
+function keyPressed() {
+  if (['1','2','3','4'].includes(key)) {
+    currentMod = key;
+  }
+}

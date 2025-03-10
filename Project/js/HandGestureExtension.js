@@ -104,6 +104,16 @@ class GestureDetector {
     const middleTip = hand.annotations.middleFinger?.[3];
     if (!palmBase || !middleTip) return { filter: 0 };
 
+     // Exclude predictions that fall within the face bounding box
+    if (typeof faceDetector !== "undefined" && faceDetector.faceBox) {
+      const { x, y, w, h } = faceDetector.faceBox;
+      // If the palm base is inside the face bounding box, skip this prediction.
+      if (palmBase[0] >= x && palmBase[0] <= x + w &&
+          palmBase[1] >= y && palmBase[1] <= y + h) {
+        return { filter: 0 };
+      }
+    }
+
     // Calculate a reference distance for comparing finger extensions.
     const refDist = this._distPoints(palmBase, middleTip);
     if (refDist <= 0) return { filter: 0 };

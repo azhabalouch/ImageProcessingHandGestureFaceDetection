@@ -19,7 +19,6 @@ let video;
 let snapshot;
 let noCamera = false;
 let cameraCheckDone = false;
-let liveMode = false;
 let detectCameraPromise;
 
 // Dynamic threshold sliders
@@ -95,16 +94,7 @@ function setup() {
     .mousePressed(() => {
       if (video && cameraCheckDone && !noCamera) {
         snapshot = video.get();
-        liveMode = false;
       }
-    });
-
-  // Live mode button
-  createButton('Go Live')
-    .position(grid.getPosition(1, 1).x + paddingX*2, grid.getPosition(1, 1).y - paddingY/2)
-    .mousePressed(() => {
-      liveMode = true;
-      snapshot = null;
     });
 
   // Create red threshold slider
@@ -167,83 +157,86 @@ function draw() {
   }
   
   /**
-   * Task 1: Use the snapshot or video as buffer
+   * Task 1: Use the snapshot as buffer
    */
   let processingFrame = snapshot ? snapshot : video.get();
-  
+
   /**
    * Task 3: Display the original webcam image
    */
   image(processingFrame, grid.getPosition(0, 0).x, grid.getPosition(0, 0).y, CAM_WIDTH, CAM_HEIGHT);
-  
-  /**
-   * Task 4 - 5: Convert the image to greyscale with brightness +%20
-   */
-  image(ImageProcessor.greyscale(processingFrame), grid.getPosition(1, 0).x, grid.getPosition(1, 0).y, CAM_WIDTH, CAM_HEIGHT);
-  
-  /**
-   * Task 6: Display individual color channels
-   */
 
-  // Display the red channel
-  const redChannel = ImageProcessor.extractChannel(processingFrame, "red");
-  image(redChannel, grid.getPosition(0, 1).x, grid.getPosition(0, 1).y, CAM_WIDTH, CAM_HEIGHT);
-  
-  // Display the green channel
-  const greenChannel = ImageProcessor.extractChannel(processingFrame, "green");
-  image(greenChannel, grid.getPosition(1, 1).x, grid.getPosition(1, 1).y, CAM_WIDTH, CAM_HEIGHT);
-  
-  // Display the blue channel
-  const blueChannel = ImageProcessor.extractChannel(processingFrame, "blue");
-  image(blueChannel, grid.getPosition(2, 1).x, grid.getPosition(2, 1).y, CAM_WIDTH, CAM_HEIGHT);
-  
-  /**
-   * Task 7: Apply dynamic thresholding to each color channel
-   */
 
-  // Display red channel thresholding
-  const redThreshImg = ImageProcessor.applyFilter(redChannel, (r, g, b, a) =>
-    ImageProcessor.threshold(r, g, b, a, "red", redThresholdSlider.value())
-  );
-  image(redThreshImg, grid.getPosition(0, 2).x, grid.getPosition(0, 2).y, CAM_WIDTH, CAM_HEIGHT);
-  
-  // Display green channel thresholding
-  const greenThreshImg = ImageProcessor.applyFilter(greenChannel, (r, g, b, a) =>
-    ImageProcessor.threshold(r, g, b, a, "green", greenThresholdSlider.value())
-  );
-  image(greenThreshImg, grid.getPosition(1, 2).x, grid.getPosition(1, 2).y, CAM_WIDTH, CAM_HEIGHT);
-  
-  // Display blue channel thresholding
-  const blueThreshImg = ImageProcessor.applyFilter(blueChannel, (r, g, b, a) =>
-    ImageProcessor.threshold(r, g, b, a, "blue", blueThresholdSlider.value())
-  );
-  image(blueThreshImg, grid.getPosition(2, 2).x, grid.getPosition(2, 2).y, CAM_WIDTH, CAM_HEIGHT);
-  
-  /**
-   * Task 9 - 10: Repeat image and colour space conversions
-   */
+  if (snapshot){
+    /**
+     * Task 4 - 5: Convert the image to greyscale with brightness +%20
+     */
+    image(ImageProcessor.greyscale(processingFrame), grid.getPosition(1, 0).x, grid.getPosition(1, 0).y, CAM_WIDTH, CAM_HEIGHT);
+    
+    /**
+     * Task 6: Display individual color channels
+     */
 
-  image(processingFrame, grid.getPosition(0, 3).x, grid.getPosition(0, 3).y, CAM_WIDTH, CAM_HEIGHT);
+    // Display the red channel
+    const redChannel = ImageProcessor.extractChannel(processingFrame, "red");
+    image(redChannel, grid.getPosition(0, 1).x, grid.getPosition(0, 1).y, CAM_WIDTH, CAM_HEIGHT);
+    
+    // Display the green channel
+    const greenChannel = ImageProcessor.extractChannel(processingFrame, "green");
+    image(greenChannel, grid.getPosition(1, 1).x, grid.getPosition(1, 1).y, CAM_WIDTH, CAM_HEIGHT);
+    
+    // Display the blue channel
+    const blueChannel = ImageProcessor.extractChannel(processingFrame, "blue");
+    image(blueChannel, grid.getPosition(2, 1).x, grid.getPosition(2, 1).y, CAM_WIDTH, CAM_HEIGHT);
+    
+    /**
+     * Task 7: Apply dynamic thresholding to each color channel
+     */
 
-  // Convert to HSV.
-  let hsvConverted = ImageProcessor.convertToHSV(processingFrame);
-  image(hsvConverted, grid.getPosition(1, 3).x, grid.getPosition(1, 3).y, CAM_WIDTH, CAM_HEIGHT);
+    // Display red channel thresholding
+    const redThreshImg = ImageProcessor.applyFilter(redChannel, (r, g, b, a) =>
+      ImageProcessor.threshold(r, g, b, a, "red", redThresholdSlider.value())
+    );
+    image(redThreshImg, grid.getPosition(0, 2).x, grid.getPosition(0, 2).y, CAM_WIDTH, CAM_HEIGHT);
+    
+    // Display green channel thresholding
+    const greenThreshImg = ImageProcessor.applyFilter(greenChannel, (r, g, b, a) =>
+      ImageProcessor.threshold(r, g, b, a, "green", greenThresholdSlider.value())
+    );
+    image(greenThreshImg, grid.getPosition(1, 2).x, grid.getPosition(1, 2).y, CAM_WIDTH, CAM_HEIGHT);
+    
+    // Display blue channel thresholding
+    const blueThreshImg = ImageProcessor.applyFilter(blueChannel, (r, g, b, a) =>
+      ImageProcessor.threshold(r, g, b, a, "blue", blueThresholdSlider.value())
+    );
+    image(blueThreshImg, grid.getPosition(2, 2).x, grid.getPosition(2, 2).y, CAM_WIDTH, CAM_HEIGHT);
+    
+    /**
+     * Task 9 - 10: Repeat image and colour space conversions
+     */
 
-  // Convert to YCbCr
-  let ycbcrConverted = ImageProcessor.convertToYCbCr(processingFrame);
-  image(ycbcrConverted, grid.getPosition(2, 3).x, grid.getPosition(2, 3).y, CAM_WIDTH, CAM_HEIGHT);
+    image(processingFrame, grid.getPosition(0, 3).x, grid.getPosition(0, 3).y, CAM_WIDTH, CAM_HEIGHT);
 
-  // Display HSV thresholding
-  let hsvThresholded = ImageProcessor.applyFilter(hsvConverted, (r, g, b, a) =>
-    ImageProcessor.thresholdHSV(r, g, b, a, hsvRadio.value(), hsvThresholdSlider.value())
-  );
-  image(hsvThresholded, grid.getPosition(1, 4).x, grid.getPosition(1, 4).y, CAM_WIDTH, CAM_HEIGHT);
+    // Convert to HSV.
+    let hsvConverted = ImageProcessor.convertToHSV(processingFrame);
+    image(hsvConverted, grid.getPosition(1, 3).x, grid.getPosition(1, 3).y, CAM_WIDTH, CAM_HEIGHT);
 
-  // Display YCbCr thresholding
-  let ycbcrThresholded = ImageProcessor.applyFilter(ycbcrConverted, (r, g, b, a) =>
-    ImageProcessor.thresholdYCbCr(r, g, b, a, ycbcrRadio.value(), ycbcrThresholdSlider.value())
-  );
-  image(ycbcrThresholded, grid.getPosition(2, 4).x, grid.getPosition(2, 4).y, CAM_WIDTH, CAM_HEIGHT);
+    // Convert to YCbCr
+    let ycbcrConverted = ImageProcessor.convertToYCbCr(processingFrame);
+    image(ycbcrConverted, grid.getPosition(2, 3).x, grid.getPosition(2, 3).y, CAM_WIDTH, CAM_HEIGHT);
+
+    // Display HSV thresholding
+    let hsvThresholded = ImageProcessor.applyFilter(hsvConverted, (r, g, b, a) =>
+      ImageProcessor.thresholdHSV(r, g, b, a, hsvRadio.value(), hsvThresholdSlider.value())
+    );
+    image(hsvThresholded, grid.getPosition(1, 4).x, grid.getPosition(1, 4).y, CAM_WIDTH, CAM_HEIGHT);
+
+    // Display YCbCr thresholding
+    let ycbcrThresholded = ImageProcessor.applyFilter(ycbcrConverted, (r, g, b, a) =>
+      ImageProcessor.thresholdYCbCr(r, g, b, a, ycbcrRadio.value(), ycbcrThresholdSlider.value())
+    );
+    image(ycbcrThresholded, grid.getPosition(2, 4).x, grid.getPosition(2, 4).y, CAM_WIDTH, CAM_HEIGHT);
+  }
 
   /**
    * TASK 12 - 13 + Extension: Face detection, modification and hand filter logic
@@ -255,7 +248,18 @@ function draw() {
   if (currentMod) {
     frame = faceDetector.applyModificationToFrame(frame, currentMod);
   }
-  image(frame, grid.getPosition(0, 4).x, grid.getPosition(0, 4).y, CAM_WIDTH, CAM_HEIGHT);
+  let pos = grid.getPosition(0, 4);
+  image(frame, pos.x, pos.y, CAM_WIDTH, CAM_HEIGHT);
+  
+  // Draw a green rectangle around the detected face
+  if (faceDetector.faceBox) {
+    let { x, y, w, h } = faceDetector.faceBox;
+    noFill();
+    stroke(0, 255, 0);
+    strokeWeight(2);
+    // Draw the rectangle offset by the grid's position
+    rect(pos.x + x, pos.y + y, w, h);
+  }
 
   // Apply gesture based color filters
   if (gestureDetector && gestureDetector.getHands().length > 0) {
@@ -268,22 +272,26 @@ function draw() {
       activeFilter = filter;
     }
   }
+  
+  let currentFrame = video.get();
 
   // Decide which frame transformation to use
-  const currentFrame =
-    activeFilter === 1 ? ImageProcessor.greyscale(video.get()) :
-    activeFilter === 2 ? ImageProcessor.convertToHSV(video.get()) :
-    activeFilter === 3 ? ImageProcessor.convertToYCbCr(video.get()) :
+  const handModifiedFrame =
+    activeFilter === 1 ? ImageProcessor.greyscale(currentFrame) :
+    activeFilter === 2 ? ImageProcessor.convertToHSV(currentFrame) :
+    activeFilter === 3 ? ImageProcessor.convertToYCbCr(currentFrame) :
     video.get();
 
+  let imagePos = grid.getPosition(0, 5);
+
   // Display final result in bottom row
-  image(currentFrame, grid.getPosition(0, 5).x, grid.getPosition(0, 5).y, CAM_WIDTH, CAM_HEIGHT);
+  image(handModifiedFrame, imagePos.x, imagePos.y, CAM_WIDTH, CAM_HEIGHT);
 
   if (gestureDetector){
     // Draw keypoints to help hand placement
     push();
       // Translate the drawing context so that keypoints align with the image's top-left corner.
-      translate(grid.getPosition(0, 5).x, grid.getPosition(0, 5).y);
+      translate(imagePos.x, imagePos.y);
       // Use the GestureDetector instance's drawKeypoints method, passing in the p5.js drawingContext.
       gestureDetector.drawKeypoints(drawingContext, { color: 'blue', radius: 4 });
     pop();
