@@ -1,7 +1,7 @@
 /**
  * GestureDetector
  * ---------------
- * Sources:
+ * Sources (Reference):
  *  - [1] https://stackoverflow.com/questions/60884574/could-tfjs-models-handpose-return-multiple-predictions  
  *      → Informed the decision to process a single-hand prediction.
  *  - [2] https://github.com/tensorflow/tfjs-models/tree/master/handpose  
@@ -13,11 +13,11 @@
  *  - [5] https://docs.ml5js.org/#/reference/handpose  
  *      → API documentation that guided method names and event usage.
  *  - [6] https://www.youtube.com/watch?v=vfNHdVbE-l4&t=459s  
- *      → Offered insight on threshold tuning for finger extension (informs FINGER_THRESHOLDS).
+ *      → Offered insight on Hand Pose Detection with ml5.js.
  *  - [7] https://www.youtube.com/watch?v=IF414I26_K8  
- *      → Supplemented understanding of real-time hand predictions and gesture mapping.
+ *      → 3D Pose Estimation with ml5.js.
  *  - [8] https://www.youtube.com/watch?v=Kr4s5sLoROY  
- *      → Provided a practical demo influencing the overall gesture logic.
+ *      → 12.4: Average Point Hand Tracking - Kinect and Processing Tutorial.
  *  - [9] https://editor.p5js.org/Samathingamajig/sketches/BV_kqU0Ik  
  *      → Served as a reference for rendering keypoints and understanding the event-driven flow.
  *
