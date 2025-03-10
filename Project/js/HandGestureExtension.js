@@ -31,14 +31,12 @@ class GestureDetector {
    * @constructor
    * @param {Object} handposeModel - An instance of the loaded HandPose model.
    *
-   * Sources: [2], [4], [5]  
-   * These sources informed the approach to loading the model and setting up the event-driven prediction mechanism.
+   * Sources: [2], [4], [5].
    */
   constructor(handposeModel) {
     this.handposeModel = handposeModel;
     this._hands = [];
 
-    // Finger extension thresholds – tuned based on demo insights and fingerpose reference.
     // Source: [6] and [3]
     this.FINGER_THRESHOLDS = {
       // thumb:       0.20,
@@ -57,8 +55,7 @@ class GestureDetector {
    * Private method: sets up the model's "predict" event listener,
    * updating our private _hands array whenever new predictions arrive.
    *
-   * Source: [4], [5]  
-   * The ml5.js HandPose examples show how to bind the "predict" event to update keypoints.
+   * Source: [4], [5]
    */
   _bindModelEvents() {
     if (!this.handposeModel || typeof this.handposeModel.on !== "function") {
@@ -75,8 +72,7 @@ class GestureDetector {
    * --------------------
    * Logs a message indicating the HandPose model is successfully loaded.
    *
-   * Source: [2], [4]  
-   * The model readiness callback in the official examples uses similar logging.
+   * Source: [2], [4]
    */
   onHandPoseModelReady() {
     console.log("HandPose model loaded and event bound.");
@@ -88,9 +84,7 @@ class GestureDetector {
    * Identifies a gesture based on the positions and distances of recognized finger landmarks.
    * Returns an object containing the "filter" number: 1, 2, 3, or 0 if no recognized gesture.
    *
-   * Source: [3], [6], [7], [8]  
-   * The gesture mapping logic (e.g., index only → filter 1; index + middle → filter 2; etc.)
-   * was inspired by the fingerpose library and YouTube tutorials demonstrating practical gesture detection.
+   * Source: [3], [6], [7], [8]
    *
    * @param {Object} hand - A single hand prediction object from the HandPose model.
    * @return {Object} - { filter: number }
@@ -145,9 +139,7 @@ class GestureDetector {
    * Checks if a specified finger is extended by comparing the ratio
    * (finger length / reference distance) to its threshold.
    *
-   * Source: [3], [6]  
-   * The technique to compare finger length with a reference distance (using keypoint distances)
-   * is adapted from fingerpose and tuning from related YouTube demos.
+   * Source: [3], [6]
    *
    * @param {Object} annotations - A hand's annotation object from the model.
    * @param {string} fingerName  - Name of the finger (e.g. 'indexFinger').
@@ -177,7 +169,7 @@ class GestureDetector {
    * -----------
    * Helper method that returns the 2D distance between two points.
    *
-   * Source: Standard Euclidean distance calculation (common in many demos and examples such as [4]).
+   * Source: [4]
    *
    * @param {Array<number>} pointA - [x1, y1].
    * @param {Array<number>} pointB - [x2, y2].
@@ -192,8 +184,7 @@ class GestureDetector {
    * --------
    * Public accessor to retrieve the current set of hand predictions.
    *
-   * Source: [4], [5]  
-   * Similar accessor patterns are used in ml5.js examples to check predictions.
+   * Source: [4], [5]
    */
   getHands() {
     return this._hands;
@@ -207,8 +198,7 @@ class GestureDetector {
    * contains all keypoints. If not available, it falls back to iterating over
    * the "annotations" property while avoiding duplicate points.
    *
-   * Source: [9]  
-   * Inspired by examples showing keypoint rendering in p5.js.
+   * Source: [9]
    *
    * @param {CanvasRenderingContext2D} ctx - The canvas 2D rendering context.
    * @param {Object} options - Optional drawing parameters (e.g., { color: 'red', radius: 5 }).
