@@ -32,6 +32,12 @@ let hsvRadio, ycbcrRadio;
 // Face detection
 let faceDetector, currentMod = null;
 
+// Global variables for handPose detection
+let handPoseModel;
+let gestureDetector;
+let hands = [];           // Array to store detected hand poses
+let activeFilter = 0;  // Start with no filter
+
 // Layout for positioning
 let grid;
 
@@ -52,7 +58,7 @@ function preload() {
  * Setup initializes the canvas, video capture, face detector, UI elements.
  */
 function setup() {
-  createCanvas(1080, 1080);
+  createCanvas(1080, 1440);
   pixelDensity(1);
   
   if (detectCameraPromise) {
@@ -63,6 +69,14 @@ function setup() {
         // Initialize the face detector
         faceDetector = new FaceDetector(video, () => {
           console.log("FaceDetector is ready.");
+        });
+        
+        // Initialize the hand pose
+        handPoseModel = ml5.handpose(video, () => {
+          console.log('HandPose Model loaded.');
+
+          gestureDetector = new GestureDetector(handPoseModel);
+          gestureDetector.onHandPoseModelReady();
         });
       }
     });
@@ -232,17 +246,49 @@ function draw() {
   image(ycbcrThresholded, grid.getPosition(2, 4).x, grid.getPosition(2, 4).y, CAM_WIDTH, CAM_HEIGHT);
 
   /**
-   * TASK 12 & 13: Face detection and modification.
+   * TASK 12 - 13 + Extension: Face detection, modification and hand filter logic
    */
 
-  // Get original image for modification
   let frame = video.get();
 
-  // Display different modes
+  // Apply face modification
   if (currentMod) {
     frame = faceDetector.applyModificationToFrame(frame, currentMod);
   }
   image(frame, grid.getPosition(0, 4).x, grid.getPosition(0, 4).y, CAM_WIDTH, CAM_HEIGHT);
+
+  // Apply gesture based color filters
+  if (gestureDetector && gestureDetector.getHands().length > 0) {
+    // Retrieve the most recent hands from the model
+    hands = gestureDetector.getHands();
+
+    // Check for a gesture from the first hand
+    const { filter } = gestureDetector.detectGesture(hands[0]);
+    if (filter >= 1 && filter <= 3 && filter !== activeFilter) {
+      activeFilter = filter;
+    }
+  }
+
+  // Decide which frame transformation to use
+  const currentFrame =
+    activeFilter === 1 ? ImageProcessor.greyscale(video.get()) :
+    activeFilter === 2 ? ImageProcessor.convertToHSV(video.get()) :
+    activeFilter === 3 ? ImageProcessor.convertToYCbCr(video.get()) :
+    video.get();
+
+  // Display final result in bottom row
+  image(currentFrame, grid.getPosition(0, 5).x, grid.getPosition(0, 5).y, CAM_WIDTH, CAM_HEIGHT);
+
+  if (gestureDetector){
+    // Draw keypoints on top of the image.
+    push();
+      // Translate the drawing context so that keypoints align with the image's top-left corner.
+      translate(grid.getPosition(0, 5).x, grid.getPosition(0, 5).y);
+      // Use the GestureDetector instance's drawKeypoints method, passing in the p5.js drawingContext.
+      gestureDetector.drawKeypoints(drawingContext, { color: 'blue', radius: 4 });
+    pop();
+  }
+  
 }
 
 /**
