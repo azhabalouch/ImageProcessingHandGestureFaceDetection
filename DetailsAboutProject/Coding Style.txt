@@ -1,4 +1,0 @@
-Coding Style:
-
-1. Code presentation: use appropriate syntax, comments, consistent indentation and leftover code blocks
-2. Code competency: use of object orientation, code reusability, use of functions, variables global vs local

@@ -1,7 +1,0 @@
-Overview:
-
-For this assignment you will develop an image processing application. You will utilise the webcam to perform several image processing manipulations such as image thresholding and colour space conversions. You will also use face detection to perform some privacy enhancing filters such as face blur and pixelate. You will earn individual points for each requirement and points for the overall performance i.e. is the logic of the application simple or complex and confusing, are there any bugs during execution etc. You will need to justify your answer for a few of these tasks – use a commentary to discuss that. You can only use the libs shown in this course and no external code will be allowed. All the code should be your own work. The following grid of images should be expected to appear at your browser when executing the app. See steps below for completing the final assignment.
-
-Extension:
-
-Since this is a creative module, we would like to give more marks for implementing further ideas. Also, you should write some words about it in the commentary (see next paragraph). Please note that we will award marks for the uniqueness of your extension and how technically challenging it appears to have been. The extension is worth 20% of your mark.
